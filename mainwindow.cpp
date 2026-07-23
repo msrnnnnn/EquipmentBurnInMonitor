@@ -5,9 +5,10 @@
 #include <QStackedWidget>
 #include <QSplitter>
 
-#include "pages/homepage.h"
-#include "pages/videopage.h"
-#include "pages/settingspage.h"
+#include "homepage.h"
+#include "videopage.h"
+#include "settingspage.h"
+#include "equipmentdata.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -101,7 +102,8 @@ void MainWindow::setupUI()
 
     // ── 右侧页面区 ──
     m_stackedWidget = new QStackedWidget;
-    m_stackedWidget->addWidget(new HomePage(this));
+    m_home = new HomePage(this);
+    m_stackedWidget->addWidget(m_home);
     m_stackedWidget->addWidget(new VideoPage(this));
     m_stackedWidget->addWidget(new SettingsPage(this));
 
@@ -118,4 +120,12 @@ void MainWindow::setupUI()
 
     // 默认选中首页
     m_navList->setCurrentRow(0);
+}
+
+void MainWindow::setSensor(EquipmentData *sensor)
+{
+    if(m_home && sensor)
+    {
+        m_home->bindSensor(sensor);
+    }
 }

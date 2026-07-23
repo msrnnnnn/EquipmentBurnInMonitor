@@ -2,7 +2,7 @@
 #define HOMEPAGE_H
 
 #include <QWidget>
-
+#include "equipmentdata.h"
 class QLabel;
 
 class HomePage : public QWidget
@@ -10,7 +10,7 @@ class HomePage : public QWidget
     Q_OBJECT
 public:
     explicit HomePage(QWidget *parent = nullptr);
-
+    void bindSensor(EquipmentData *sensor);
 signals:
 
 private:

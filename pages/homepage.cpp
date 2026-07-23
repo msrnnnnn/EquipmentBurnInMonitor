@@ -60,3 +60,38 @@ HomePage::HomePage(QWidget *parent)
         grid->addWidget(card, i / 3, i % 3);
     }
 }
+
+void HomePage::bindSensor(EquipmentData *sensor)
+{
+    if(!sensor) return;
+    connect(sensor, &EquipmentData::temperatureChanged, this, [this, sensor]() {
+        if (m_tempLabel) {
+            m_tempLabel->setText(QString::number(sensor->getTemperature(), 'f', 1) + " °C");
+        }
+    });
+    connect(sensor, &EquipmentData::currentChanged, this, [this, sensor]() {
+        if (m_currentLabel) {
+            m_currentLabel->setText(QString::number(sensor->getCurrent(), 'f', 1) + " A");
+        }
+    });
+    connect(sensor, &EquipmentData::rpmChanged, this, [this, sensor]() {
+        if (m_rpmLabel) {
+            m_rpmLabel->setText(QString::number(sensor->getRpm(), 'f', 0) + " r/min");
+        }
+    });
+    connect(sensor, &EquipmentData::vibrationChanged, this, [this, sensor]() {
+        if (m_vibrationLabel) {
+            m_vibrationLabel->setText(QString::number(sensor->getVibration(), 'f', 1) + " mm/s");
+        }
+    });
+    connect(sensor, &EquipmentData::voltageChanged, this, [this, sensor]() {
+        if (m_voltageLabel) {
+            m_voltageLabel->setText(QString::number(sensor->getVoltage(), 'f', 1) + " V");
+        }
+    });
+    connect(sensor, &EquipmentData::powerChanged, this, [this, sensor]() {
+        if (m_powerLabel) {
+            m_powerLabel->setText(QString::number(sensor->getPower(), 'f', 1) + " kW");
+        }
+    });
+}

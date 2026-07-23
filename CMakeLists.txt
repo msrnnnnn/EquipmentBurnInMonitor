@@ -13,12 +13,14 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        pages/homepage.h     pages/homepage.cpp
-        pages/videopage.h    pages/videopage.cpp
-        pages/settingspage.h pages/settingspage.cpp
+    main.cpp
+    mainwindow.cpp
+    mainwindow.h
+    pages/homepage.h     pages/homepage.cpp
+    pages/videopage.h    pages/videopage.cpp
+    pages/settingspage.h pages/settingspage.cpp
+    equipmentdata.h      equipmentdata.cpp
+    equipmentdataprovider.h equipmentdataprovider.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -26,29 +28,23 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
     )
-# Define target properties for Android with Qt 6 as:
-#    set_property(TARGET EquipmentBurnInMonitor APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-#                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
-# For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
 else()
     if(ANDROID)
-        add_library(EquipmentBurnInMonitor SHARED
-            ${PROJECT_SOURCES}
-        )
-# Define properties for Android with Qt 5 after find_package() calls as:
-#    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
+        add_library(EquipmentBurnInMonitor SHARED ${PROJECT_SOURCES})
     else()
-        add_executable(EquipmentBurnInMonitor
-            ${PROJECT_SOURCES}
-        )
+        add_executable(EquipmentBurnInMonitor ${PROJECT_SOURCES})
     endif()
 endif()
 
+
+target_include_directories(EquipmentBurnInMonitor PRIVATE
+    ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/pages
+)
+
 target_link_libraries(EquipmentBurnInMonitor PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 
-# Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
-# If you are developing for iOS or macOS you should consider setting an
-# explicit, fixed bundle identifier manually though.
+
 if(${QT_VERSION} VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.EquipmentBurnInMonitor)
 endif()
