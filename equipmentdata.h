@@ -2,6 +2,7 @@
 #define EQUIPMENTDATA_H
 
 #include <QObject>
+#include "equipmentdataprovider.h"
 
 class EquipmentData : public QObject
 {
@@ -24,6 +25,8 @@ public:
     double getVibration() const;
     double getVoltage() const;
     double getPower() const;
+
+    EquipmentDataProvider& provider();
 
     // ── setter ──
     void setTemperature(double value);
@@ -48,6 +51,8 @@ private:
     double m_vibration = 0.0;
     double m_voltage = 0.0;
     double m_power = 0.0;
+
+    EquipmentDataProvider m_provider;
 };
 
 #endif // EQUIPMENTDATA_H

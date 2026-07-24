@@ -2,12 +2,14 @@
 #define EQUIPMENTDATAPROVIDER_H
 
 #include <QObject>
- #include <QVariant>
+#include <QVariant>
+
 class EquipmentDataProvider : public QObject
 {
     Q_OBJECT
 public:
     explicit EquipmentDataProvider(QObject *parent = nullptr);
+    QVariantList history() const;
 
 public slots:
     void pushSample(QVariantMap record);

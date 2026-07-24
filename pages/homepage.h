@@ -2,7 +2,9 @@
 #define HOMEPAGE_H
 
 #include <QWidget>
+#include <QTableWidget>
 #include "equipmentdata.h"
+
 class QLabel;
 
 class HomePage : public QWidget
@@ -11,15 +13,18 @@ class HomePage : public QWidget
 public:
     explicit HomePage(QWidget *parent = nullptr);
     void bindSensor(EquipmentData *sensor);
-signals:
 
 private:
+    void onHistoryUpdated(const QVariantList &datas);
+
     QLabel *m_tempLabel = nullptr;
     QLabel *m_currentLabel = nullptr;
     QLabel *m_rpmLabel = nullptr;
     QLabel *m_vibrationLabel = nullptr;
     QLabel *m_voltageLabel = nullptr;
     QLabel *m_powerLabel = nullptr;
+
+    QTableWidget *m_historyTable = nullptr;
 };
 
 #endif // HOMEPAGE_H

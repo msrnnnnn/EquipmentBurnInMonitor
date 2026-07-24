@@ -13,6 +13,11 @@ double EquipmentData::getVibration() const   { return m_vibration; }
 double EquipmentData::getVoltage() const     { return m_voltage; }
 double EquipmentData::getPower() const       { return m_power; }
 
+EquipmentDataProvider& EquipmentData::provider()
+{
+    return m_provider;
+}
+
 // ── setter：变化检查 → 赋值 → 发信号 ──
 
 void EquipmentData::setTemperature(double value)

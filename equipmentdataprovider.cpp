@@ -4,6 +4,11 @@ EquipmentDataProvider::EquipmentDataProvider(QObject *parent)
     : QObject{parent}, m_maxHistory(50)
 {}
 
+QVariantList EquipmentDataProvider::history() const
+{
+    return m_history;
+}
+
 void EquipmentDataProvider::pushSample(QVariantMap record)
 {
     if(m_history.size() >= m_maxHistory){

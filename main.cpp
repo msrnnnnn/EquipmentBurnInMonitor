@@ -12,7 +12,6 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
 
     EquipmentData sensor;
-    EquipmentDataProvider provider;
 
     // ── 模拟数据初始值（工业典型工况） ──
     double temperature = 45.0;
@@ -40,6 +39,12 @@ int main(int argc, char *argv[])
         voltage     = qBound(0.0,  voltage     + randomDelta(-2.0, 2.0), 450.0);
         power       = qBound(0.0,  power       + randomDelta(-0.3, 0.3), 15.0);
 
+        // 偶尔注入异常（10%概率），用于测试异常高亮
+        if (rng->generateDouble() < 0.10) {
+            temperature = 85.0;
+            current = 27.0;
+        }
+
         // 写入数据模型 → 触发信号 → UI 刷新
         sensor.setTemperature(temperature);
         sensor.setCurrent(current);
@@ -49,17 +54,19 @@ int main(int argc, char *argv[])
         sensor.setPower(power);
 
         // 存历史 + 广播实时数据
+        const bool isAnomaly = (temperature > 80.0 || current > 25.0);
         QVariantMap record;
-        record["time"]       = QDateTime::currentMSecsSinceEpoch();
+        record["time"]        = QDateTime::currentMSecsSinceEpoch();
         record["temperature"] = temperature;
-        record["current"]    = current;
-        record["rpm"]        = rpm;
-        record["vibration"]  = vibration;
-        record["voltage"]    = voltage;
-        record["power"]      = power;
+        record["current"]     = current;
+        record["rpm"]         = rpm;
+        record["vibration"]   = vibration;
+        record["voltage"]     = voltage;
+        record["power"]       = power;
+        record["anomaly"]     = isAnomaly;
 
-        provider.pushSample(record);
-        provider.pushRealtime(record);
+        sensor.provider().pushSample(record);
+        sensor.provider().pushRealtime(record);
     });
     timer.start();
 
