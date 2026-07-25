@@ -22,6 +22,7 @@ set(PROJECT_SOURCES
     equipmentdata.h      equipmentdata.cpp
     equipmentdataprovider.h equipmentdataprovider.cpp
     third_party/qcustomplot.cpp third_party/qcustomplot.h
+    src/logging/logger.h     src/logging/logger.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -42,6 +43,7 @@ target_include_directories(EquipmentBurnInMonitor PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/pages
     ${CMAKE_SOURCE_DIR}/third_party
+    ${CMAKE_SOURCE_DIR}/src
 )
 
 target_link_libraries(EquipmentBurnInMonitor PRIVATE

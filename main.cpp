@@ -1,15 +1,23 @@
 #include "mainwindow.h"
 #include "equipmentdata.h"
 #include "equipmentdataprovider.h"
+#include "logging/logger.h"
 
 #include <QApplication>
 #include <QDateTime>
 #include <QRandomGenerator>
 #include <QTimer>
 
+using namespace burninsys;
+
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+
+    // 初始化日志
+    Logger::instance().setLevel(Logger::Level::Info);
+    Logger::instance().enableFileSink("logs/burnin.log");
+    Logger::instance().info("Application started");
 
     EquipmentData sensor;
 
@@ -44,6 +52,8 @@ int main(int argc, char *argv[])
         if (rng->generateDouble() < 0.10) {
             temperature = 85.0;
             current = 27.0;
+            Logger::instance().warn(QStringLiteral("Anomaly injected: temp=%1 current=%2")
+                .arg(temperature, 0, 'f', 1).arg(current, 0, 'f', 1));
         }
 
         // 写入数据模型 → 触发信号 → UI 刷新
