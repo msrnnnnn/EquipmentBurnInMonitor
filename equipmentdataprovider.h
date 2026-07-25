@@ -16,11 +16,13 @@ public:
 public slots:
     void pushSample(QVariantMap record);
     void pushRealtime(QVariantMap record);
-    void sendThreshold(double motorTemp, double current, double rpm,double vibration, double voltage, double power);
+    void sendThreshold(double motorTemp, double current, double rpm, double vibration, double voltage, double power);
+    void sendConnectRequest(const QString &host, int port);
 signals:
     void historyUpdated(QVariantList history);
     void realtimeDataReady(QVariantMap record);
-    void thresholdUpdated(double motorTemp, double current, double rpm,double vibration, double voltage, double power);
+    void thresholdUpdated(double motorTemp, double current, double rpm, double vibration, double voltage, double power);
+    void connectRequested(const QString &host, int port);
 private:
     QVariantList m_history;
     int m_maxHistory;

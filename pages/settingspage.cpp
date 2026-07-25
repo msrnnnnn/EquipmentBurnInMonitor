@@ -66,9 +66,19 @@ void SettingsPage::bindSensor(EquipmentData *sensor)
 {
     if(!sensor) return;
 
-    connect(m_saveBtn,&QPushButton::clicked,this,[this, sensor](){
-        sensor->provider().sendThreshold(m_tempThreshold->text().toDouble(),m_currentThreshold->text().toDouble(),
-                                         m_rpmThreshold->text().toDouble(),m_vibrationThreshold->text().toDouble(),
-                                         m_voltageThreshold->text().toDouble(),m_powerThreshold->text().toDouble());
+    connect(m_saveBtn, &QPushButton::clicked, this, [this, sensor]() {
+        sensor->provider().sendThreshold(
+            m_tempThreshold->text().toDouble(),
+            m_currentThreshold->text().toDouble(),
+            m_rpmThreshold->text().toDouble(),
+            m_vibrationThreshold->text().toDouble(),
+            m_voltageThreshold->text().toDouble(),
+            m_powerThreshold->text().toDouble());
+    });
+
+    connect(m_connectBtn, &QPushButton::clicked, this, [this, sensor]() {
+        sensor->provider().sendConnectRequest(
+            m_hostInput->text(),
+            m_portInput->text().toInt());
     });
 }

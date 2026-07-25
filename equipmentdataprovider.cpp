@@ -27,3 +27,8 @@ void EquipmentDataProvider::sendThreshold(double motorTemp, double current, doub
 {
     emit thresholdUpdated(motorTemp, current, rpm, vibration, voltage, power);
 }
+
+void EquipmentDataProvider::sendConnectRequest(const QString &host, int port)
+{
+    emit connectRequested(host, port);
+}
