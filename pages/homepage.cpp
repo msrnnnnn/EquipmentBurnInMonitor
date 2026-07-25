@@ -93,8 +93,46 @@ HomePage::HomePage(QWidget *parent)
         }
     )");
     root->addWidget(m_historyTable, 1);
+    m_ssBtn = new QPushButton(this);
+    root->addWidget(m_ssBtn, 0);
+    m_chart = new QCustomPlot(this);
+
+    // [面试重点] QCustomPlot 实时曲线范式：滑动窗口 + 异步重绘
+    // X轴用时间戳（秒），QCPAxisTickerDateTime 自动格式化为 HH:mm:ss
+    auto dateTicker = QSharedPointer<QCPAxisTickerDateTime>(new QCPAxisTickerDateTime);
+    dateTicker->setDateTimeFormat("HH:mm:ss");
+    m_chart->xAxis->setTicker(dateTicker);
+
+    // 添加一条曲线（温度），红色，2px粗
+    m_chart->addGraph();
+    m_chart->graph(0)->setPen(QPen(QColor(0xef, 0x44, 0x44), 2));
+    m_chart->graph(0)->setName("Motor Temp");
+
+    // Y轴固定范围 20~100°C
+    m_chart->yAxis->setRange(20, 100);
+    m_chart->yAxis->setLabel("Temperature (°C)");
+
+    // 暗色主题配色
+    m_chart->setBackground(QColor(0x11, 0x18, 0x27));
+    m_chart->xAxis->setLabelColor(QColor(0xcb, 0xd5, 0xe1));
+    m_chart->yAxis->setLabelColor(QColor(0xcb, 0xd5, 0xe1));
+    m_chart->xAxis->setTickLabelColor(QColor(0xcb, 0xd5, 0xe1));
+    m_chart->yAxis->setTickLabelColor(QColor(0xcb, 0xd5, 0xe1));
+    m_chart->xAxis->setBasePen(QPen(QColor(0x33, 0x41, 0x55)));
+    m_chart->yAxis->setBasePen(QPen(QColor(0x33, 0x41, 0x55)));
+    m_chart->xAxis->grid()->setPen(QPen(QColor(0x33, 0x41, 0x55)));
+    m_chart->yAxis->grid()->setPen(QPen(QColor(0x33, 0x41, 0x55)));
+
+    // X轴初始范围：当前时间前后30秒
+    const double now = QDateTime::currentSecsSinceEpoch();
+    m_chart->xAxis->setRange(now - 30.0, now);
+
+    root->addWidget(m_chart, 1);
 }
 
+// [面试重点] 信号槽绑定：观察者模式的Qt实现
+// 用lambda而非单独槽函数：6个指标逻辑相同，lambda内联更简洁
+// connect的第3参数this：自动管理生命周期，HomePage销毁时自动断开连接
 void HomePage::bindSensor(EquipmentData *sensor)
 {
     if (!sensor) return;
@@ -129,6 +167,17 @@ void HomePage::bindSensor(EquipmentData *sensor)
         if (m_powerLabel) {
             m_powerLabel->setText(QString::number(sensor->getPower(), 'f', 1) + " kW");
         }
+    });
+
+    // ── 实时曲线绑定 ──
+    // [面试重点] QCustomPlot 实时追加范式：addData → removeDataBefore → 滑动X轴 → replot
+    // rpQueuedReplot 异步重绘，不阻塞信号处理，高频数据时比同步replot高效
+    connect(sensor, &EquipmentData::temperatureChanged, this, [this, sensor]() {
+        const double now = QDateTime::currentSecsSinceEpoch();
+        m_chart->graph(0)->addData(now, sensor->getTemperature());
+        m_chart->graph(0)->data()->removeBefore(now - 30.0);  // 只保留最近30秒
+        m_chart->xAxis->setRange(now - 30, now);         // X轴滑动窗口
+        m_chart->replot(QCustomPlot::rpQueuedReplot);    // 异步重绘
     });
 
     // ── 历史表格绑定 ──

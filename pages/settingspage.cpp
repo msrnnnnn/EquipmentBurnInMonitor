@@ -4,7 +4,6 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLineEdit>
-#include <QPushButton>
 
 SettingsPage::SettingsPage(QWidget *parent)
     : QWidget{parent}
@@ -21,11 +20,11 @@ SettingsPage::SettingsPage(QWidget *parent)
     m_portInput = new QLineEdit("1502");
     m_portInput->setPlaceholderText("Modbus TCP Port");
 
-    auto *connectBtn = new QPushButton("Connect");
+    m_connectBtn = new QPushButton("Connect");
 
     connLayout->addRow("Host:", m_hostInput);
     connLayout->addRow("Port:", m_portInput);
-    connLayout->addRow("", connectBtn);
+    connLayout->addRow("", m_connectBtn);
 
     // ── 报警阈值 ──
     auto *thresholdGroup = new QGroupBox("Thresholds");
@@ -45,8 +44,8 @@ SettingsPage::SettingsPage(QWidget *parent)
     thresholdLayout->addRow("Voltage (V):",      m_voltageThreshold);
     thresholdLayout->addRow("Power (kW):",       m_powerThreshold);
 
-    auto *saveBtn = new QPushButton("Save Thresholds");
-    thresholdLayout->addRow("", saveBtn);
+    m_saveBtn = new QPushButton("Save Thresholds");
+    thresholdLayout->addRow("", m_saveBtn);
 
     // ── 测试档案 ──
     auto *profileGroup = new QGroupBox("Test Profile");
@@ -61,4 +60,15 @@ SettingsPage::SettingsPage(QWidget *parent)
     mainLayout->addWidget(connGroup);
     mainLayout->addWidget(thresholdGroup);
     mainLayout->addWidget(profileGroup);
+}
+
+void SettingsPage::bindSensor(EquipmentData *sensor)
+{
+    if(!sensor) return;
+
+    connect(m_saveBtn,&QPushButton::clicked,this,[this, sensor](){
+        sensor->provider().sendThreshold(m_tempThreshold->text().toDouble(),m_currentThreshold->text().toDouble(),
+                                         m_rpmThreshold->text().toDouble(),m_vibrationThreshold->text().toDouble(),
+                                         m_voltageThreshold->text().toDouble(),m_powerThreshold->text().toDouble());
+    });
 }

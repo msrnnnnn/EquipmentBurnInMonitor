@@ -2,8 +2,10 @@
 #define HOMEPAGE_H
 
 #include <QWidget>
+#include <QPushButton>
 #include <QTableWidget>
 #include "equipmentdata.h"
+#include "qcustomplot.h"
 
 class QLabel;
 
@@ -25,6 +27,8 @@ private:
     QLabel *m_powerLabel = nullptr;
 
     QTableWidget *m_historyTable = nullptr;
+    QCustomPlot *m_chart = nullptr;
+    QPushButton *m_ssBtn = nullptr;
 };
 
 #endif // HOMEPAGE_H

@@ -22,7 +22,8 @@ int main(int argc, char *argv[])
     double power       = 5.5;
 
     // ── QTimer 每秒模拟一次采集 ──
-    // 后面接 Modbus 时，这段会被替换成真实的轮询调度
+    // [面试重点] 数据流：数据源(QTimer/Modbus) → EquipmentData(setter) → 信号 → UI刷新
+    // 后面接 Modbus 时，只需替换这段QTimer，sensor.setXxx()那6行调用完全不动
     QTimer timer;
     timer.setInterval(1000);
     QObject::connect(&timer, &QTimer::timeout, [&]() {
@@ -54,6 +55,8 @@ int main(int argc, char *argv[])
         sensor.setPower(power);
 
         // 存历史 + 广播实时数据
+        // [面试重点] QVariantMap：Qt万能容器，信号槽直接传递无需注册自定义类型
+        // 统一时间轴：6个参数同一时间戳，才能做关联分析（"温度升高时电流是否也升高"）
         const bool isAnomaly = (temperature > 80.0 || current > 25.0);
         QVariantMap record;
         record["time"]        = QDateTime::currentMSecsSinceEpoch();

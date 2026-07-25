@@ -19,45 +19,47 @@ EquipmentDataProvider& EquipmentData::provider()
 }
 
 // ── setter：变化检查 → 赋值 → 发信号 ──
+// [面试重点] 变化检查避免无意义刷新：工业上位机跑几天，不做过滤会疯狂刷UI
+// qFuzzyCompare 不能直接比较含0.0的值（文档明确说不可靠），加1.0偏移规避
 
 void EquipmentData::setTemperature(double value)
 {
-    if (qFuzzyCompare(m_temperature, value)) return;
+    if (qFuzzyCompare(1.0 + m_temperature, 1.0 + value)) return;
     m_temperature = value;
     emit temperatureChanged();
 }
 
 void EquipmentData::setCurrent(double value)
 {
-    if (qFuzzyCompare(m_current, value)) return;
+    if (qFuzzyCompare(1.0 + m_current, 1.0 + value)) return;
     m_current = value;
     emit currentChanged();
 }
 
 void EquipmentData::setRpm(double value)
 {
-    if (qFuzzyCompare(m_rpm, value)) return;
+    if (qFuzzyCompare(1.0 + m_rpm, 1.0 + value)) return;
     m_rpm = value;
     emit rpmChanged();
 }
 
 void EquipmentData::setVibration(double value)
 {
-    if (qFuzzyCompare(m_vibration, value)) return;
+    if (qFuzzyCompare(1.0 + m_vibration, 1.0 + value)) return;
     m_vibration = value;
     emit vibrationChanged();
 }
 
 void EquipmentData::setVoltage(double value)
 {
-    if (qFuzzyCompare(m_voltage, value)) return;
+    if (qFuzzyCompare(1.0 + m_voltage, 1.0 + value)) return;
     m_voltage = value;
     emit voltageChanged();
 }
 
 void EquipmentData::setPower(double value)
 {
-    if (qFuzzyCompare(m_power, value)) return;
+    if (qFuzzyCompare(1.0 + m_power, 1.0 + value)) return;
     m_power = value;
     emit powerChanged();
 }

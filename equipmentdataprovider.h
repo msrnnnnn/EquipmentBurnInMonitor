@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QVariant>
 
+// [面试重点] 单一职责：只管历史缓存+信号广播，不做异常判断、不做数据库写入
+// 异常判断归RuleEngine，数据库归SqliteWriter，各自独立
 class EquipmentDataProvider : public QObject
 {
     Q_OBJECT
@@ -14,9 +16,11 @@ public:
 public slots:
     void pushSample(QVariantMap record);
     void pushRealtime(QVariantMap record);
+    void sendThreshold(double motorTemp, double current, double rpm,double vibration, double voltage, double power);
 signals:
     void historyUpdated(QVariantList history);
     void realtimeDataReady(QVariantMap record);
+    void thresholdUpdated(double motorTemp, double current, double rpm,double vibration, double voltage, double power);
 private:
     QVariantList m_history;
     int m_maxHistory;

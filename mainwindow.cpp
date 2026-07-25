@@ -103,9 +103,11 @@ void MainWindow::setupUI()
     // ── 右侧页面区 ──
     m_stackedWidget = new QStackedWidget;
     m_home = new HomePage(this);
+    m_videoPage = new VideoPage(this);
+    m_setting = new SettingsPage(this);
     m_stackedWidget->addWidget(m_home);
-    m_stackedWidget->addWidget(new VideoPage(this));
-    m_stackedWidget->addWidget(new SettingsPage(this));
+    m_stackedWidget->addWidget(m_videoPage);
+    m_stackedWidget->addWidget(m_setting);
 
     // ── 连接导航信号 ──
     connect(m_navList, &QListWidget::currentRowChanged,
@@ -122,10 +124,10 @@ void MainWindow::setupUI()
     m_navList->setCurrentRow(0);
 }
 
+// [面试重点] 传递者模式：MainWindow只负责把sensor转交给HomePage，自己不处理数据
+// 保持MainWindow简洁——它只管导航布局，不插手数据流
 void MainWindow::setSensor(EquipmentData *sensor)
 {
-    if(m_home && sensor)
-    {
-        m_home->bindSensor(sensor);
-    }
+    if (m_home && sensor) m_home->bindSensor(sensor);
+    if (m_setting && sensor) m_setting->bindSensor(sensor);
 }

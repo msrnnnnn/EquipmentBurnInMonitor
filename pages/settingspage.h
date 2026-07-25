@@ -2,7 +2,8 @@
 #define SETTINGSPAGE_H
 
 #include <QWidget>
-
+#include <QPushButton>
+#include "equipmentdata.h"
 class QLineEdit;
 
 class SettingsPage : public QWidget
@@ -10,7 +11,8 @@ class SettingsPage : public QWidget
     Q_OBJECT
 public:
     explicit SettingsPage(QWidget *parent = nullptr);
-
+    void bindSensor(EquipmentData *sensor);
+public slots:
 signals:
 
 private:
@@ -22,6 +24,8 @@ private:
     QLineEdit *m_vibrationThreshold = nullptr;
     QLineEdit *m_voltageThreshold = nullptr;
     QLineEdit *m_powerThreshold = nullptr;
+    QPushButton *m_saveBtn = nullptr;
+    QPushButton *m_connectBtn = nullptr;
 };
 
 #endif // SETTINGSPAGE_H

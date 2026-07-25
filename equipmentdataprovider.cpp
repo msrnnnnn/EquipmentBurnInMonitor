@@ -22,3 +22,8 @@ void EquipmentDataProvider::pushRealtime(QVariantMap record)
 {
     emit realtimeDataReady(record);
 }
+
+void EquipmentDataProvider::sendThreshold(double motorTemp, double current, double rpm, double vibration, double voltage, double power)
+{
+    emit thresholdUpdated(motorTemp, current, rpm, vibration, voltage, power);
+}
