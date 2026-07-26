@@ -23,6 +23,7 @@ set(PROJECT_SOURCES
     equipmentdataprovider.h equipmentdataprovider.cpp
     third_party/qcustomplot.cpp third_party/qcustomplot.h
     src/logging/logger.h     src/logging/logger.cpp
+    src/config/config.h      src/config/config.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
