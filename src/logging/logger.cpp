@@ -84,7 +84,7 @@ void Logger::emitLine(Level level, const QString &msg)
 
     const auto line = format(level, msg);
     QMutexLocker locker(&m_mutex);
-    for (const auto &sink : m_sinks)
+    for (const auto &sink : std::as_const(m_sinks))
     {
         sink(line);
     }

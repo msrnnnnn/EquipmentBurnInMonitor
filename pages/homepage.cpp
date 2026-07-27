@@ -93,8 +93,6 @@ HomePage::HomePage(QWidget *parent)
         }
     )");
     root->addWidget(m_historyTable, 1);
-    m_ssBtn = new QPushButton(this);
-    root->addWidget(m_ssBtn, 0);
     m_chart = new QCustomPlot(this);
 
     // [面试重点] QCustomPlot 实时曲线范式：滑动窗口 + 异步重绘
