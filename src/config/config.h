@@ -21,8 +21,8 @@ struct PollItem
 {
     QString name;            // 指标名，如 "motorTemperature"
     QString registerType;    // "holding" 或 "input"
-    int address{0};          // Modbus 寄存器地址
-    int length{1};           // 读几个寄存器（32位浮点需要2个）
+    quint16 address{0};          // Modbus 寄存器地址
+    quint16 length{1};           // 读几个寄存器（32位浮点需要2个）
     int intervalMs{1000};    // 采样间隔
     double scale{1.0};       // 缩放系数：原始值 × scale = 实际值
 };

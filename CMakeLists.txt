@@ -32,6 +32,10 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         src/config/ConfigWatcher.h src/config/ConfigWatcher.cpp
+        src/modbus/ModbusTypes.h
+        src/modbus/ModbusTypes.cpp
+        src/device/DeviceDriver.cpp src/device/DeviceDriver.h
+
 
     )
 else()
