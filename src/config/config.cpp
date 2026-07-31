@@ -5,7 +5,7 @@
 #include <QFile>
 #include <QJsonDocument>
 
-namespace burninsys {
+using burninsys::Logger;
 
 Config ConfigLoader::loadFromFile(const QString &path)
 {
@@ -83,4 +83,3 @@ QVector<RuleConfig> ConfigLoader::parseRules(const QJsonArray &arr) const
     return rules;
 }
 
-} // namespace burninsys

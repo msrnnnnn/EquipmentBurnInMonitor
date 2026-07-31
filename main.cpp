@@ -10,7 +10,7 @@
 #include <QRandomGenerator>
 #include <QTimer>
 
-using namespace burninsys;
+using burninsys::Logger;
 
 int main(int argc, char *argv[])
 {

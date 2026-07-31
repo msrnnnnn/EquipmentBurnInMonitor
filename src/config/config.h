@@ -5,8 +5,6 @@
 #include <QString>
 #include <QVector>
 
-namespace burninsys {
-
 // ── Modbus 连接端点 ──
 struct ModbusEndpoint
 {
@@ -72,4 +70,3 @@ private:
     QVector<RuleConfig> parseRules(const QJsonArray &arr) const;
 };
 
-} // namespace burninsys

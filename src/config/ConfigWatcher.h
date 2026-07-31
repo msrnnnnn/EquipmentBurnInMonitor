@@ -11,12 +11,12 @@ public:
     explicit ConfigWatcher(QObject *parent = nullptr);
     void watch(const QString &path);
 signals:
-    void updated(const burninsys::Config &cfg);
+    void updated(const Config &cfg);
 private slots:
     void onFileChanged(const QString &path);
 private:
     QFileSystemWatcher *m_watcher = nullptr;
-    burninsys::ConfigLoader m_loader;
+    ConfigLoader m_loader;
 };
 
 #endif // CONFIGWATCHER_H

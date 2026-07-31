@@ -5,8 +5,6 @@
 #include <QObject>
 #include <QString>
 
-namespace burninsys {
-
 // [面试重点] 遥测采样模型：一条采样数据的完整信息
 // quality 字段让每个模块自行判断如何处理坏数据，而不是在通信层直接丢弃
 struct TelemetrySample
@@ -26,9 +24,7 @@ public:
     using QObject::QObject;
     virtual ~DeviceDriver() override = default;
 
-    virtual QString name() const = 0;                              // 我叫什么
-    virtual ModbusRequest buildRequest() const = 0;                // 我要读什么
-    virtual TelemetrySample decode(const ModbusResponse &resp) const = 0;  // 怎么解码
+    virtual QString name() const = 0;
+    virtual ModbusRequest buildRequest() const = 0;
+    virtual TelemetrySample decode(const ModbusResponse &resp) const = 0;
 };
-
-} // namespace burninsys

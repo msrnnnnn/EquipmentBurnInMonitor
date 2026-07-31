@@ -1,7 +1,5 @@
 #include "modbus/ModbusTypes.h"
 
-namespace burninsys {
-
 RegisterType registerTypeFromString(const QString &s)
 {
     const auto lower = s.toLower();
@@ -21,5 +19,3 @@ QString registerTypeToString(RegisterType type)
     }
     return "holdingRegister";
 }
-
-} // namespace burninsys

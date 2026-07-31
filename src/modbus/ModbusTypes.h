@@ -3,8 +3,6 @@
 #include <QByteArray>
 #include <QString>
 
-namespace burninsys{
-
 enum class RegisterType{
     Coil = 0,
     DiscreteInput,
@@ -30,6 +28,4 @@ struct ModbusResponse{
 
 RegisterType registerTypeFromString(const QString &s);   // 字符串 → 枚举
 QString registerTypeToString(RegisterType type);          // 枚举 → 字符串
-
-}
 

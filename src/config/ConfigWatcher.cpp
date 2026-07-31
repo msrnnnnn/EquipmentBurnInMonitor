@@ -14,7 +14,7 @@ void ConfigWatcher::watch(const QString &path)
 
 void ConfigWatcher::onFileChanged(const QString &path)
 {
-    burninsys::Config cfg = m_loader.loadFromFile(path);
+    Config cfg = m_loader.loadFromFile(path);
     emit updated(cfg);
 
     if(!m_watcher->files().contains(path))
