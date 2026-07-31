@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(EquipmentBurnInMonitor VERSION 0.1 LANGUAGES CXX)
+project(EquipmentBurnInMonitor VERSION 0.1 LANGUAGES CXX C)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -9,35 +9,46 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 显式设置 Qt6 的安装路径（确保你的路径正确）
 set(CMAKE_PREFIX_PATH "E:/Qt/6.10.0/mingw_64" CACHE PATH "Qt6 prefix")
 
-# 只查找 Qt6，不再依赖任何版本的变量
 find_package(Qt6 REQUIRED COMPONENTS Widgets Sql PrintSupport)
 
+set(SRC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# ── C++ 源文件 ──
 set(PROJECT_SOURCES
-    main.cpp
-    mainwindow.cpp
-    mainwindow.h
-    pages/homepage.h     pages/homepage.cpp
-    pages/videopage.h    pages/videopage.cpp
-    pages/settingspage.h pages/settingspage.cpp
-    equipmentdata.h      equipmentdata.cpp
-    equipmentdataprovider.h equipmentdataprovider.cpp
-    third_party/qcustomplot.cpp third_party/qcustomplot.h
-    src/logging/logger.h     src/logging/logger.cpp
-    src/config/config.h      src/config/config.cpp
-    src/config/ConfigWatcher.h src/config/ConfigWatcher.cpp
-    src/modbus/ModbusTypes.h src/modbus/ModbusTypes.cpp
-    src/device/DeviceDriver.cpp src/device/DeviceDriver.h
-    src/data/datacache.cpp src/data/datacache.h
-    src/data/SqliteRepository.h src/data/SqliteRepository.cpp
+    ${SRC}/main.cpp
+    ${SRC}/mainwindow.cpp
+    ${SRC}/mainwindow.h
+    ${SRC}/pages/homepage.h     ${SRC}/pages/homepage.cpp
+    ${SRC}/pages/videopage.h    ${SRC}/pages/videopage.cpp
+    ${SRC}/pages/settingspage.h ${SRC}/pages/settingspage.cpp
+    ${SRC}/equipmentdata.h      ${SRC}/equipmentdata.cpp
+    ${SRC}/equipmentdataprovider.h ${SRC}/equipmentdataprovider.cpp
+    ${SRC}/third_party/qcustomplot.cpp ${SRC}/third_party/qcustomplot.h
+    ${SRC}/src/logging/logger.h     ${SRC}/src/logging/logger.cpp
+    ${SRC}/src/config/config.h      ${SRC}/src/config/config.cpp
+    ${SRC}/src/config/ConfigWatcher.h ${SRC}/src/config/ConfigWatcher.cpp
+    ${SRC}/src/modbus/ModbusTypes.h ${SRC}/src/modbus/ModbusTypes.cpp
+    ${SRC}/src/device/DeviceDriver.h
+    ${SRC}/src/data/datacache.cpp ${SRC}/src/data/datacache.h
+    ${SRC}/src/data/SqliteRepository.h ${SRC}/src/data/SqliteRepository.cpp
+    ${SRC}/src/metrics/MetricsCollector.cpp ${SRC}/src/metrics/MetricsCollector.h
+)
+
+# ── libmodbus C 源文件 ──
+set(LIBMODBUS_SOURCES
+    ${SRC}/third_party/libmodbus/modbus.c
+    ${SRC}/third_party/libmodbus/modbus-data.c
+    ${SRC}/third_party/libmodbus/modbus-tcp.c
+    ${SRC}/third_party/libmodbus/modbus-rtu.c
 )
 
 qt_add_executable(EquipmentBurnInMonitor
     MANUAL_FINALIZATION
     ${PROJECT_SOURCES}
-    src/metrics/MetricsCollector.cpp src/metrics/MetricsCollector.h
+    ${LIBMODBUS_SOURCES}
+    src/modbus/modbustcpclient.h src/modbus/modbustcpclient.cpp
 )
 
 configure_file(
@@ -47,23 +58,23 @@ configure_file(
 )
 
 target_include_directories(EquipmentBurnInMonitor PRIVATE
-    ${CMAKE_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/pages
-    ${CMAKE_SOURCE_DIR}/third_party
-    ${CMAKE_SOURCE_DIR}/src
+    ${SRC}
+    ${SRC}/pages
+    ${SRC}/third_party
+    ${SRC}/third_party/libmodbus
+    ${SRC}/src
 )
 
 target_link_libraries(EquipmentBurnInMonitor PRIVATE
     Qt6::Widgets
     Qt6::PrintSupport
     Qt6::Sql
+    ws2_32
 )
 
-# 修正后的版本判断（使用 Qt6_VERSION）
 if(Qt6_VERSION VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.EquipmentBurnInMonitor)
 endif()
-
 set_target_properties(EquipmentBurnInMonitor PROPERTIES
     ${BUNDLE_ID_OPTION}
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}

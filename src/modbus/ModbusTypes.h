@@ -2,6 +2,7 @@
 
 #include <QByteArray>
 #include <QString>
+#include <QVector>
 
 enum class RegisterType{
     Coil = 0,
@@ -11,13 +12,19 @@ enum class RegisterType{
 };
 
 
-struct ModbusRequest{
+struct ModbusReadRequest{
     quint8 unitId{1};
     RegisterType type{RegisterType::HoldingRegister};
     quint16 startAddress{0};
     quint16 quantity{0};
 };
 
+struct ModbusWriteRequest{
+    quint8 unitId{1};
+    RegisterType type{RegisterType::HoldingRegister};
+    quint16 startAddress{0};
+    QVector<quint16> values;
+};
 
 struct ModbusResponse{
     bool success{false};

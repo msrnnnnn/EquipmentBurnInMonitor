@@ -1,0 +1,72 @@
+#include "modbustcpclient.h"
+#include <QVector>
+ModbusTcpClient::ModbusTcpClient() {}
+
+ModbusTcpClient::~ModbusTcpClient()
+{
+    close();
+}
+
+bool ModbusTcpClient::open(const QString &host, int port)
+{
+    if((m_ctx = modbus_new_tcp(host.toUtf8().constData(), port)) == nullptr) return false;
+    if(modbus_connect(m_ctx) == -1){
+        modbus_free(m_ctx);
+        m_ctx = nullptr;
+        return false;
+    }
+    m_connected = true;
+    return true;
+}
+
+ModbusResponse ModbusTcpClient::readRegisters(const ModbusReadRequest &req)
+{
+    if(m_ctx == nullptr) return ModbusResponse{};
+    QVector<uint16_t> buffer(req.quantity);
+    ModbusResponse rsp;
+    int rc = modbus_read_registers(m_ctx,req.startAddress,req.quantity,buffer.data());
+    int savedErr = errno;
+    if(rc != -1){
+        rsp.success = true;
+        rsp.payload = QByteArray(reinterpret_cast<const char*>(buffer.data()), rc * sizeof(uint16_t));
+
+    }
+    else{
+        rsp.success = false;
+        rsp.error = modbus_strerror(savedErr);
+        rsp.payload = QByteArray{};
+    }
+    return rsp;
+}
+
+ModbusResponse ModbusTcpClient::writeRegisters(const ModbusWriteRequest &req)
+{
+    if(m_ctx == nullptr) return ModbusResponse{};
+    ModbusResponse rsp;
+    int rc = modbus_write_registers(m_ctx,req.startAddress,req.values.size(),req.values.data());
+    int savedErr = errno;
+    if(rc != -1){
+        rsp.success = true;
+    }
+    else{
+        rsp.success = false;
+        rsp.error = modbus_strerror(savedErr);
+        rsp.payload = QByteArray{};
+    }
+    return rsp;
+}
+
+void ModbusTcpClient::close()
+{
+    if(m_ctx)
+    {
+        modbus_close(m_ctx);
+        modbus_free(m_ctx);
+        m_connected = false;
+    }
+}
+
+bool ModbusTcpClient::isConnected() const
+{
+    return m_connected;
+}

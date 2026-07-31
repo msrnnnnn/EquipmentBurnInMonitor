@@ -25,6 +25,7 @@ public:
     virtual ~DeviceDriver() override = default;
 
     virtual QString name() const = 0;
-    virtual ModbusRequest buildRequest() const = 0;
+    virtual ModbusReadRequest buildReadRequest() const = 0;
+    virtual ModbusWriteRequest buildWriteRequest() const = 0;
     virtual TelemetrySample decode(const ModbusResponse &resp) const = 0;
 };
