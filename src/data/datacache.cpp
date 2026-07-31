@@ -1,6 +1,6 @@
 #include "datacache.h"
 #include <QWriteLocker>
-DataCache::DataCache(QObject *parent){}
+DataCache::DataCache(){}
 
 void DataCache::put(const TelemetrySample& samples)
 {

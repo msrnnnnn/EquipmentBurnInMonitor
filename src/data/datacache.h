@@ -8,7 +8,7 @@
 class DataCache
 {
 public:
-    explicit DataCache(QObject *parent = nullptr);
+    DataCache();
     void put(const TelemetrySample& samples);
     TelemetrySample latest(const QString& name) const;
     QVector<TelemetrySample> snapshot() const;
