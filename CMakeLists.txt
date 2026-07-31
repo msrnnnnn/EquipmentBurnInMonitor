@@ -37,6 +37,7 @@ set(PROJECT_SOURCES
 qt_add_executable(EquipmentBurnInMonitor
     MANUAL_FINALIZATION
     ${PROJECT_SOURCES}
+    src/metrics/MetricsCollector.cpp src/metrics/MetricsCollector.h
 )
 
 configure_file(
