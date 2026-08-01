@@ -4,7 +4,7 @@ ModbusTcpClient::ModbusTcpClient() {}
 
 ModbusTcpClient::~ModbusTcpClient()
 {
-    close();
+    if(m_connected) close();
 }
 
 bool ModbusTcpClient::open(const QString &host, int port)

@@ -49,6 +49,7 @@ qt_add_executable(EquipmentBurnInMonitor
     ${PROJECT_SOURCES}
     ${LIBMODBUS_SOURCES}
     src/modbus/modbustcpclient.h src/modbus/modbustcpclient.cpp
+    src/modbus/modbussession.h src/modbus/modbussession.cpp
 )
 
 configure_file(
