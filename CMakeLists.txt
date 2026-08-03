@@ -50,6 +50,12 @@ qt_add_executable(EquipmentBurnInMonitor
     ${LIBMODBUS_SOURCES}
     src/modbus/modbustcpclient.h src/modbus/modbustcpclient.cpp
     src/modbus/modbussession.h src/modbus/modbussession.cpp
+    src/device/modbusdevicedriver.h src/device/modbusdevicedriver.cpp
+    src/device/simpleregisterdevice.h src/device/simpleregisterdevice.cpp
+    src/device/motortemperaturedevice.h src/device/motortemperaturedevice.cpp
+    src/device/currentdevice.h src/device/currentdevice.cpp
+    src/scheduler/PollingScheduler.h src/scheduler/PollingScheduler.cpp
+
 )
 
 configure_file(

@@ -5,9 +5,22 @@
 #include "config/config.h"
 #include "config/ConfigWatcher.h"
 
+// Modbus 通信层
+#include "modbus/ModbusSession.h"
+#include "modbus/ModbusTcpClient.h"
+
+// 设备驱动
+#include "device/SimpleRegisterDevice.h"
+#include "device/MotorTemperatureDevice.h"
+#include "device/CurrentDevice.h"
+
+// 调度器
+#include "scheduler/PollingScheduler.h"
+
 #include <QApplication>
 #include <QDateTime>
 #include <QRandomGenerator>
+#include <QThread>
 #include <QTimer>
 
 using burninsys::Logger;
@@ -16,91 +29,111 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
-    // 初始化日志
+    // ── 初始化日志 ──
     Logger::instance().setLevel(Logger::Level::Info);
     Logger::instance().enableFileSink("logs/burnin.log");
     Logger::instance().info("Application started");
 
-    // 加载配置
+    // ── 加载配置 ──
     ConfigLoader loader;
     Config config = loader.loadFromFile("config.json");
 
-    //监听配置文件
     ConfigWatcher watcher;
     watcher.watch("config.json");
 
-    // 回退检查
     if (config.endpoint.host.isEmpty() || config.items.isEmpty()) {
         Logger::instance().warn("Config load failed, using fallback");
-        // 用代码内置默认值
     } else {
         Logger::instance().info("Config loaded successfully");
     }
 
+    // ── 数据模型 ──
     EquipmentData sensor;
 
-    // ── 模拟数据初始值（工业典型工况） ──
-    double temperature = 45.0;
-    double current     = 12.5;
-    double rpm         = 1500.0;
-    double vibration   = 2.3;
-    double voltage     = 380.0;
-    double power       = 5.5;
+    // ── Modbus 通信 + 设备驱动 + 调度器（采集线程） ──
+    // [面试重点] moveToThread 只搬槽函数到目标线程
+    // 所以阻塞操作（session.send）必须放在 PollingScheduler 的 tick() 槽函数里
+    // tick() 通过 QTimer::timeout 信号触发，在 workerThread 的事件循环里执行
+    ModbusSession *session = new ModbusSession;
+    PollingScheduler *scheduler = new PollingScheduler(session);
 
-    // ── QTimer 每秒模拟一次采集 ──
-    // [面试重点] 数据流：数据源(QTimer/Modbus) → EquipmentData(setter) → 信号 → UI刷新
-    // 后面接 Modbus 时，只需替换这段QTimer，sensor.setXxx()那6行调用完全不动
-    QTimer timer;
-    timer.setInterval(1000);
-    QObject::connect(&timer, &QTimer::timeout, [&]() {
-        auto *rng = QRandomGenerator::global();
-        const auto randomDelta = [rng](double minVal, double maxVal) {
-            return minVal + rng->generateDouble() * (maxVal - minVal);
-        };
+    // 创建设备驱动，从 Config 读取地址和缩放系数
+    // [面试重点] 基类指针 + 多态：运行时通过 DeviceDriver* 调用不同子类的 decode
+    if (!config.items.isEmpty()) {
+        auto *tempDriver = new MotorTemperatureDevice;
+        tempDriver->setName("temperature");
+        tempDriver->setAddress(config.items[0].address);
+        tempDriver->setScale(config.items[0].scale);
+        tempDriver->setUnitId(config.endpoint.unitId);
+        scheduler->addTask(tempDriver, config.items[0].intervalMs);
 
-        // 每个指标在当前值附近小幅波动，用 qBound 限制范围
-        temperature = qBound(20.0, temperature + randomDelta(-1.0, 1.0), 90.0);
-        current     = qBound(0.0,  current     + randomDelta(-0.5, 0.5), 30.0);
-        rpm         = qBound(0.0,  rpm         + randomDelta(-50.0, 50.0), 3000.0);
-        vibration   = qBound(0.0,  vibration   + randomDelta(-0.2, 0.2), 10.0);
-        voltage     = qBound(0.0,  voltage     + randomDelta(-2.0, 2.0), 450.0);
-        power       = qBound(0.0,  power       + randomDelta(-0.3, 0.3), 15.0);
+        auto *currentDriver = new CurrentDevice;
+        currentDriver->setName("current");
+        currentDriver->setAddress(config.items[1].address);
+        currentDriver->setScale(config.items[1].scale);
+        currentDriver->setUnitId(config.endpoint.unitId);
+        scheduler->addTask(currentDriver, config.items[1].intervalMs);
 
-        // 偶尔注入异常（10%概率），用于测试异常高亮
-        if (rng->generateDouble() < 0.10) {
-            temperature = 85.0;
-            current = 27.0;
-            Logger::instance().warn(QStringLiteral("Anomaly injected: temp=%1 current=%2")
-                .arg(temperature, 0, 'f', 1).arg(current, 0, 'f', 1));
-        }
+        auto *rpmDriver = new SimpleRegisterDevice;
+        rpmDriver->setName("rpm");
+        rpmDriver->setAddress(config.items[2].address);
+        rpmDriver->setScale(config.items[2].scale);
+        rpmDriver->setUnitId(config.endpoint.unitId);
+        scheduler->addTask(rpmDriver, config.items[2].intervalMs);
 
-        // 写入数据模型 → 触发信号 → UI 刷新
-        sensor.setTemperature(temperature);
-        sensor.setCurrent(current);
-        sensor.setRpm(rpm);
-        sensor.setVibration(vibration);
-        sensor.setVoltage(voltage);
-        sensor.setPower(power);
+        auto *vibrationDriver = new SimpleRegisterDevice;
+        vibrationDriver->setName("vibration");
+        vibrationDriver->setAddress(config.items[3].address);
+        vibrationDriver->setScale(config.items[3].scale);
+        vibrationDriver->setUnitId(config.endpoint.unitId);
+        scheduler->addTask(vibrationDriver, config.items[3].intervalMs);
 
-        // 存历史 + 广播实时数据
-        // [面试重点] QVariantMap：Qt万能容器，信号槽直接传递无需注册自定义类型
-        // 统一时间轴：6个参数同一时间戳，才能做关联分析（"温度升高时电流是否也升高"）
-        const bool isAnomaly = (temperature > 80.0 || current > 25.0);
-        QVariantMap record;
-        record["time"]        = QDateTime::currentMSecsSinceEpoch();
-        record["temperature"] = temperature;
-        record["current"]     = current;
-        record["rpm"]         = rpm;
-        record["vibration"]   = vibration;
-        record["voltage"]     = voltage;
-        record["power"]       = power;
-        record["anomaly"]     = isAnomaly;
+        auto *voltageDriver = new SimpleRegisterDevice;
+        voltageDriver->setName("voltage");
+        voltageDriver->setAddress(config.items[4].address);
+        voltageDriver->setScale(config.items[4].scale);
+        voltageDriver->setUnitId(config.endpoint.unitId);
+        scheduler->addTask(voltageDriver, config.items[4].intervalMs);
 
-        sensor.provider().pushSample(record);
-        sensor.provider().pushRealtime(record);
+        auto *powerDriver = new SimpleRegisterDevice;
+        powerDriver->setName("power");
+        powerDriver->setAddress(config.items[5].address);
+        powerDriver->setScale(config.items[5].scale);
+        powerDriver->setUnitId(config.endpoint.unitId);
+        scheduler->addTask(powerDriver, config.items[5].intervalMs);
+    }
+
+    // ── 移动到采集线程 ──
+    // session 和 scheduler 都移到同一个 workerThread
+    // session.send() 是阻塞调用，在 workerThread 执行不卡 UI
+    QThread *workerThread = new QThread;
+    session->moveToThread(workerThread);
+    scheduler->moveToThread(workerThread);
+    workerThread->start();
+
+    // 线程启动后再开始调度（invokeMethod 在 workerThread 的事件循环里执行 start）
+    QMetaObject::invokeMethod(scheduler, &PollingScheduler::start);
+
+    // ── 采集线程 → 主线程：更新 UI ──
+    // [面试重点] 跨线程信号槽：emit 在采集线程，槽函数在主线程
+    // Qt 自动使用 QueuedConnection，线程安全，不需要手动加锁
+    QObject::connect(scheduler, &PollingScheduler::sampleReady,
+                     &sensor, [&sensor](const TelemetrySample &sample) {
+        if (sample.name == "temperature")
+            sensor.setTemperature(sample.value);
+        else if (sample.name == "current")
+            sensor.setCurrent(sample.value);
+        else if (sample.name == "rpm")
+            sensor.setRpm(sample.value);
+        else if (sample.name == "vibration")
+            sensor.setVibration(sample.value);
+        else if (sample.name == "voltage")
+            sensor.setVoltage(sample.value);
+        else if (sample.name == "power")
+            sensor.setPower(sample.value);
     });
-    timer.start();
 
+    // ── 窗口 ──
     MainWindow w;
     w.setSensor(&sensor);
     w.show();
