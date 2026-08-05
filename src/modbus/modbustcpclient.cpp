@@ -35,6 +35,7 @@ ModbusResponse ModbusTcpClient::readRegisters(const ModbusReadRequest &req)
     if(m_ctx == nullptr) return ModbusResponse{};
     QVector<uint16_t> buffer(req.quantity);
     ModbusResponse rsp;
+    modbus_set_slave(m_ctx, req.unitId);
     int rc = modbus_read_registers(m_ctx, req.startAddress, req.quantity, buffer.data());
     int savedErr = errno;
     if(rc != -1){
@@ -54,6 +55,7 @@ ModbusResponse ModbusTcpClient::writeRegisters(const ModbusWriteRequest &req)
 {
     if(m_ctx == nullptr) return ModbusResponse{};
     ModbusResponse rsp;
+    modbus_set_slave(m_ctx, req.unitId);
     int rc = modbus_write_registers(m_ctx,req.startAddress,req.values.size(),req.values.data());
     int savedErr = errno;
     if(rc != -1){

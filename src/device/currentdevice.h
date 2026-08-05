@@ -35,7 +35,8 @@ public:
             return sample;
         }
 
-        qint16 raw = (static_cast<quint8>(rsp.payload[0]) << 8) | static_cast<quint8>(rsp.payload[1]);
+        quint16 raw;
+        memcpy(&raw, rsp.payload.constData(), sizeof(quint16));
         sample.value = static_cast<double>(raw) * getScale();
         return sample;
     }
