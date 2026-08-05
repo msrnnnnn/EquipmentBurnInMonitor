@@ -5,7 +5,10 @@
 
 ServiceFacade::ServiceFacade(QObject *parent)
     : QObject{parent}
-{}
+{
+    m_uiTimer.setInterval(1000);
+    connect(&m_uiTimer, &QTimer::timeout, this, &ServiceFacade::refreshUiState);
+}
 
 ServiceFacade::~ServiceFacade()
 {
@@ -57,10 +60,12 @@ void ServiceFacade::start(const Config &config)
     m_healthMonitor = new HealthMonitor(m_modbusSession,this);
     connect(m_pollingScheduler,&PollingScheduler::sampleReady,m_healthMonitor,&HealthMonitor::onSample);
     connect(m_pollingScheduler, &PollingScheduler::sampleReady, this, &ServiceFacade::onSampleReady);
+    m_uiTimer.start();
 }
 
 void ServiceFacade::stop()
 {
+    m_uiTimer.stop();
     if(m_workThread && m_workThread->isRunning())
     {
         m_modbusSession->stop();
@@ -88,4 +93,17 @@ void ServiceFacade::onSampleReady(const TelemetrySample &sample)
     m_cache.put(sample);
     m_metricsCollector.record(sample);
     m_sqliteRepository.save(sample);
+    ++m_telemetryCount;
+    emit telemetryCountChanged(m_telemetryCount);
+}
+
+void ServiceFacade::refreshUiState()
+{
+    bool connected = m_modbusSession && m_modbusSession->isConnected();
+    if (connected != m_modbusConnected) {
+        m_modbusConnected = connected;
+        emit modbusConnectedChanged(m_modbusConnected);
+    }
+    bool healthy = m_healthMonitor && m_healthMonitor->isHealthy();
+    emit healthyChanged(healthy);
 }

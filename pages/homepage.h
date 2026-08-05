@@ -15,6 +15,8 @@ class HomePage : public QWidget
 public:
     explicit HomePage(QWidget *parent = nullptr);
     void bindSensor(EquipmentData *sensor);
+    void updateStatus(bool healthy);
+    void updateCount(int count);
 
 private:
     void onHistoryUpdated(const QVariantList &datas);
@@ -29,6 +31,8 @@ private:
     QTableWidget *m_historyTable = nullptr;
     QCustomPlot *m_chart = nullptr;
     QPushButton *m_ssBtn = nullptr;
+    QLabel *m_statusLabel = nullptr;
+    QLabel *m_countLabel = nullptr;
 };
 
 #endif // HOMEPAGE_H

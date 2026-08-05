@@ -27,7 +27,6 @@ void HealthMonitor::reset()
 {
     m_lastSample.restart();
     m_wasHealthy = true;
-    emit recovered();
 }
 
 void HealthMonitor::onSample(const TelemetrySample &sample)

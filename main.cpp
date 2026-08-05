@@ -42,6 +42,14 @@ int main(int argc, char *argv[])
 
     MainWindow w;
     w.setSensor(facade.getEquipmentData());
+
+    // ServiceFacade 状态 → UI
+    HomePage *home = w.homePage();
+    QObject::connect(&facade, &ServiceFacade::healthyChanged,
+                     home, &HomePage::updateStatus);
+    QObject::connect(&facade, &ServiceFacade::telemetryCountChanged,
+                     home, &HomePage::updateCount);
+
     w.show();
 
     return a.exec();

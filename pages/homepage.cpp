@@ -14,6 +14,18 @@ HomePage::HomePage(QWidget *parent)
     root->setContentsMargins(16, 16, 16, 16);
     root->setSpacing(16);
 
+    // ── 状态栏 ──
+    auto *statusBar = new QHBoxLayout;
+    m_statusLabel = new QLabel("● 离线");
+    m_statusLabel->setStyleSheet("color: #ef4444; font-size: 14px; font-weight: bold;");
+    m_countLabel = new QLabel("采集: 0");
+    m_countLabel->setStyleSheet("color: #94a3b8; font-size: 14px;");
+    statusBar->addWidget(m_statusLabel);
+    statusBar->addSpacing(16);
+    statusBar->addWidget(m_countLabel);
+    statusBar->addStretch(1);
+    root->addLayout(statusBar);
+
     // ── 六个指标卡片 ──
     auto *grid = new QGridLayout;
     grid->setSpacing(16);
@@ -211,4 +223,20 @@ void HomePage::onHistoryUpdated(const QVariantList &datas)
         m_historyTable->setItem(i, 6, makeItem(QString::number(row["power"].toDouble(), 'f', 1)));
     }
     m_historyTable->scrollToBottom();
+}
+
+void HomePage::updateStatus(bool healthy)
+{
+    if (healthy) {
+        m_statusLabel->setText("● 在线");
+        m_statusLabel->setStyleSheet("color: #22c55e; font-size: 14px; font-weight: bold;");
+    } else {
+        m_statusLabel->setText("● 异常");
+        m_statusLabel->setStyleSheet("color: #ef4444; font-size: 14px; font-weight: bold;");
+    }
+}
+
+void HomePage::updateCount(int count)
+{
+    m_countLabel->setText(QStringLiteral("采集: %1").arg(count));
 }

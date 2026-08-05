@@ -18,6 +18,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     void setSensor(EquipmentData *sensor);
+    HomePage* homePage() { return m_home; }
 private:
     void setupUI();
     QListWidget   *m_navList = nullptr;
