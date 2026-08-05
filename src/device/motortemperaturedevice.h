@@ -9,13 +9,19 @@ class MotorTemperatureDevice : public ModbusDeviceDriver
 {
 public:
     using ModbusDeviceDriver::ModbusDeviceDriver;
+
+    QString name() const override
+    {
+        return getName();
+    }
+
     ModbusReadRequest buildReadRequest() const override
     {
         ModbusReadRequest req;
         req.type = RegisterType::HoldingRegister;
         req.quantity = 2;
-        req.startAddress = address();
-        req.unitId = unitId();
+        req.startAddress = getAddress();
+        req.unitId = getUnitId();
         return req;
     }
     TelemetrySample decode(const ModbusResponse &rsp) const override
@@ -31,7 +37,7 @@ public:
         }
 
         float value = modbus_get_float_abcd(reinterpret_cast<const uint16_t*>(rsp.payload.constData()));
-        sample.value = static_cast<double>(value) * scale();
+        sample.value = static_cast<double>(value) * getScale();
         return sample;
     }
 };

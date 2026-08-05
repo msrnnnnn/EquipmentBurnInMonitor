@@ -1,5 +1,5 @@
 #include "PollingScheduler.h"
-#include <qdatetime.h>
+#include <QDateTime>
 
 PollingScheduler::PollingScheduler(ModbusSession *session, QObject *parent)
     : QObject{parent}, m_session(session)

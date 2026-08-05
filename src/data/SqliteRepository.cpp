@@ -1,5 +1,7 @@
 #include "SqliteRepository.h"
 #include "logging/logger.h"
+#include <QDir>
+#include <QFileInfo>
 
 SqliteRepository::SqliteRepository() {}
 
@@ -9,6 +11,8 @@ void SqliteRepository::open(const QString &dbPath)
     m_db = QSqlDatabase::addDatabase("QSQLITE", "repository");
     m_db.setDatabaseName(dbPath);
     m_dbPath = dbPath;
+
+    QDir().mkpath(QFileInfo(dbPath).absolutePath());
 
     if (!m_db.open()) {
         burninsys::Logger::instance().error("SQLite open failed");

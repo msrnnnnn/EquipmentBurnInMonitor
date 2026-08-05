@@ -44,6 +44,7 @@ set(LIBMODBUS_SOURCES
     ${SRC}/third_party/libmodbus/modbus-rtu.c
 )
 
+
 qt_add_executable(EquipmentBurnInMonitor
     MANUAL_FINALIZATION
     ${PROJECT_SOURCES}
@@ -55,6 +56,10 @@ qt_add_executable(EquipmentBurnInMonitor
     src/device/motortemperaturedevice.h src/device/motortemperaturedevice.cpp
     src/device/currentdevice.h src/device/currentdevice.cpp
     src/scheduler/PollingScheduler.h src/scheduler/PollingScheduler.cpp
+    src/api/ServiceFacade.cpp src/api/ServiceFacade.h
+    src/api/servicefacade.h src/api/servicefacade.cpp
+    src/diagnostics/HealthMonitor.cpp src/diagnostics/HealthMonitor.h
+    src/diagnostics/healthmonitor.h src/diagnostics/healthmonitor.cpp
 
 )
 
@@ -78,6 +83,8 @@ target_link_libraries(EquipmentBurnInMonitor PRIVATE
     Qt6::Sql
     ws2_32
 )
+target_link_libraries(EquipmentBurnInMonitor PRIVATE Qt${QT_VERSION_MAJOR}::Core)
+target_link_libraries(EquipmentBurnInMonitor PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 
 if(Qt6_VERSION VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.EquipmentBurnInMonitor)
