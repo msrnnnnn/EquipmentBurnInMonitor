@@ -2,7 +2,6 @@
 
 #ifndef CONFIG_H
 #define CONFIG_H
-
 #define VERSION "3.2.0"
 #define PACKAGE_STRING "libmodbus 3.2.0"
 

@@ -57,6 +57,7 @@ void ServiceFacade::start(const Config &config)
     QMetaObject::invokeMethod(m_modbusSession,[this,config](){
         m_modbusSession->start(config.endpoint.host, config.endpoint.port);
     });
+    QMetaObject::invokeMethod(m_pollingScheduler, &PollingScheduler::start);
     m_healthMonitor = new HealthMonitor(m_modbusSession,this);
     connect(m_pollingScheduler,&PollingScheduler::sampleReady,m_healthMonitor,&HealthMonitor::onSample);
     connect(m_pollingScheduler, &PollingScheduler::sampleReady, this, &ServiceFacade::onSampleReady);
@@ -68,8 +69,8 @@ void ServiceFacade::stop()
     m_uiTimer.stop();
     if(m_workThread && m_workThread->isRunning())
     {
-        m_modbusSession->stop();
-        m_pollingScheduler->stop();
+        QMetaObject::invokeMethod(m_modbusSession,&ModbusSession::stop,Qt::BlockingQueuedConnection);
+        QMetaObject::invokeMethod(m_pollingScheduler,&PollingScheduler::stop,Qt::BlockingQueuedConnection);
         m_workThread->quit();
         m_workThread->wait();
         delete m_pollingScheduler;

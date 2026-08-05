@@ -1,4 +1,7 @@
 #include "modbussession.h"
+#include "logging/logger.h"
+
+using burninsys::Logger;
 
 ModbusSession::ModbusSession(QObject *parent)
     : QObject{parent}
@@ -34,7 +37,7 @@ ModbusResponse ModbusSession::send(const ModbusReadRequest &req)
     if(m_connected)
     {
         rsp = m_client.readRegisters(req);
-
+        //Logger::instance().info("modbus read registers sucess");
     }else rsp.error = "Not connected";
     return rsp;
 }

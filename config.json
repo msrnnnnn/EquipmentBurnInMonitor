@@ -6,11 +6,11 @@
     },
     "items": [
         { "name": "temperature", "address": 5, "scale": 0.01 },
-        { "name": "current",     "address": 6, "scale": 0.01 },
-        { "name": "rpm",         "address": 7, "scale": 1.0 },
-        { "name": "vibration",   "address": 8, "scale": 0.01 },
-        { "name": "voltage",     "address": 9, "scale": 0.1 },
-        { "name": "power",       "address": 10, "scale": 0.01 }
+        { "name": "current",     "address": 7, "scale": 0.01 },
+        { "name": "rpm",         "address": 8, "scale": 1.0 },
+        { "name": "vibration",   "address": 9, "scale": 0.01 },
+        { "name": "voltage",     "address": 10, "scale": 0.1 },
+        { "name": "power",       "address": 11, "scale": 0.01 }
     ],
     "rules": [
         { "name": "temp_high", "type": "threshold", "threshold": 85.0 }

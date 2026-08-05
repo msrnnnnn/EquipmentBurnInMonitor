@@ -83,6 +83,8 @@ target_link_libraries(EquipmentBurnInMonitor PRIVATE
     Qt6::Sql
     ws2_32
 )
+
+target_compile_definitions(EquipmentBurnInMonitor PRIVATE FD_SETSIZE=1024)
 target_link_libraries(EquipmentBurnInMonitor PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 target_link_libraries(EquipmentBurnInMonitor PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 

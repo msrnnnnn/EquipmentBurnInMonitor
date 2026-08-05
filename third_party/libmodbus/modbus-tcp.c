@@ -12,6 +12,10 @@
 # ifndef WINVER
 #   define WINVER 0x0501
 # endif
+/* Fix: Windows socket descriptors can exceed default FD_SETSIZE (64) */
+# ifndef FD_SETSIZE
+#   define FD_SETSIZE 1024
+# endif
 #endif
 
 #include <stdio.h>
