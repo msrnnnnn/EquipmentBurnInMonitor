@@ -1,11 +1,13 @@
 #include "homepage.h"
-
+#include "logging/logger.h"
 #include <QDateTime>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QVBoxLayout>
+
+using burninsys::Logger;
 
 HomePage::HomePage(QWidget *parent)
     : QWidget{parent}
@@ -183,6 +185,7 @@ void HomePage::bindSensor(EquipmentData *sensor)
     // [面试重点] QCustomPlot 实时追加范式：addData → removeDataBefore → 滑动X轴 → replot
     // rpQueuedReplot 异步重绘，不阻塞信号处理，高频数据时比同步replot高效
     connect(sensor, &EquipmentData::temperatureChanged, this, [this, sensor]() {
+        Logger::instance().info("rpQueuedReplot 异步重绘");
         const double now = QDateTime::currentSecsSinceEpoch();
         m_chart->graph(0)->addData(now, sensor->getTemperature());
         m_chart->graph(0)->data()->removeBefore(now - 30.0);  // 只保留最近30秒

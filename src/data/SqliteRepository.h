@@ -5,13 +5,16 @@
 #include <QSqlDatabase>
 #include <QString>
 #include <QSqlQuery>
-class SqliteRepository
+#include <QObject>
+class SqliteRepository : public QObject
 {
+    Q_OBJECT
 public:
-    SqliteRepository();
+    SqliteRepository(QObject *parent = nullptr);
     void open(const QString &dbPath);                              // 打开+建表+配置WAL
-    void save(const TelemetrySample &sample);                      // INSERT一条
     QVector<TelemetrySample> query(const QString &name,qint64 fromMs, qint64 toMs) const;// SELECT历史
+public slots:
+    void save(const TelemetrySample &sample);                      // INSERT一条
 private:
     QSqlDatabase m_db;
     QString m_dbPath;

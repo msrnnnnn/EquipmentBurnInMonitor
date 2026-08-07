@@ -44,12 +44,13 @@ private:
     ModbusSession* m_modbusSession = nullptr;
     MetricsCollector m_metricsCollector;
     DataCache m_cache;
-    SqliteRepository m_sqliteRepository;
+    SqliteRepository* m_sqliteRepository = nullptr;
     QThread* m_workThread = nullptr;
     QList<DeviceDriver*> m_drivers;
     QTimer m_uiTimer;
     bool m_modbusConnected{false};
     int m_telemetryCount{0};
+    QVariantMap m_pendingRecord;
 };
 
 #endif // SERVICEFACADE_H

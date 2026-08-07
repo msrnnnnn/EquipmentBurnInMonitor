@@ -3,7 +3,7 @@
 #include <QDir>
 #include <QFileInfo>
 
-SqliteRepository::SqliteRepository() {}
+SqliteRepository::SqliteRepository(QObject *parent) {}
 
 void SqliteRepository::open(const QString &dbPath)
 {

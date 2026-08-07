@@ -1,6 +1,7 @@
 #include "modbustcpclient.h"
 #include "logging/logger.h"
 #include <QVector>
+#include <winsock2.h>
 
 using burninsys::Logger;
 
@@ -8,7 +9,7 @@ ModbusTcpClient::ModbusTcpClient() {}
 
 ModbusTcpClient::~ModbusTcpClient()
 {
-    if(m_connected) close();
+    close();
 }
 
 bool ModbusTcpClient::open(const QString &host, int port)
@@ -18,14 +19,17 @@ bool ModbusTcpClient::open(const QString &host, int port)
         Logger::instance().error("Modbus TCP init failed: modbus_new_tcp returned nullptr.");
         return false;
     }
-    Logger::instance().info("Modbus TCP init sucess");
+    Logger::instance().info("Modbus TCP init success");
     if(modbus_connect(m_ctx) == -1){
+        int savedErrno = errno;
+        int wsaErr = WSAGetLastError();
+        modbus_close(m_ctx);
         modbus_free(m_ctx);
         m_ctx = nullptr;
-        Logger::instance().error(QStringLiteral("Modbus TCP connect failed: modbus_connect returned %1.").arg(modbus_strerror(errno)));
+        Logger::instance().error(QStringLiteral("Modbus TCP connect failed: errno=%1 wsaErr=%2").arg(savedErrno).arg(wsaErr));
         return false;
     }
-    Logger::instance().info("Modbus TCP connect sucess");
+    Logger::instance().info("Modbus TCP connect success");
     m_connected = true;
     return true;
 }
