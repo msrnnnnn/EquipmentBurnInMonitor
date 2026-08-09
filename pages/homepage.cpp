@@ -22,7 +22,8 @@ HomePage::HomePage(QWidget *parent)
     m_statusLabel->setStyleSheet("color: #ef4444; font-size: 14px; font-weight: bold;");
     m_countLabel = new QLabel("采集: 0");
     m_countLabel->setStyleSheet("color: #94a3b8; font-size: 14px;");
-    m_ssBtn = new QPushButton("启动/停止");
+    m_ssBtn = new QPushButton("启动");
+    m_ssBtn->setStyleSheet("background-color: #2563eb; color: white; font-weight: bold; padding: 6px 16px; border-radius: 4px;");
     statusBar->addWidget(m_ssBtn);
     statusBar->addWidget(m_statusLabel);
     statusBar->addSpacing(16);
@@ -198,7 +199,19 @@ void HomePage::bindSensor(EquipmentData *sensor)
     // ── 历史表格绑定 ──
     connect(&sensor->provider(), &EquipmentDataProvider::historyUpdated,
             this, &HomePage::onHistoryUpdated);
-    connect(m_ssBtn,&QPushButton::clicked,&sensor->provider(),&EquipmentDataProvider::motorCommand);
+    // ── 启停按钮切换 ──
+    static bool isRunning = false;
+    connect(m_ssBtn, &QPushButton::clicked, &sensor->provider(), &EquipmentDataProvider::motorCommand);
+    connect(m_ssBtn, &QPushButton::clicked, this, [this]() {
+        isRunning = !isRunning;
+        if (isRunning) {
+            m_ssBtn->setText("停止");
+            m_ssBtn->setStyleSheet("background-color: #ef4444; color: white; font-weight: bold; padding: 6px 16px; border-radius: 4px;");
+        } else {
+            m_ssBtn->setText("启动");
+            m_ssBtn->setStyleSheet("background-color: #2563eb; color: white; font-weight: bold; padding: 6px 16px; border-radius: 4px;");
+        }
+    });
 }
 
 void HomePage::onHistoryUpdated(const QVariantList &datas)

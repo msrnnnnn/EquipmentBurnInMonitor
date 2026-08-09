@@ -4,7 +4,6 @@
 #include "Rule.h"
 
 #include <QObject>
-#include <QList>
 
 class RuleEngine : public QObject
 {
@@ -12,14 +11,14 @@ class RuleEngine : public QObject
 public:
     explicit RuleEngine(QObject *parent = nullptr);
 
-    void addRule(Rule *rule);
+    void addRule(std::unique_ptr<Rule> rule);
     void evaluate(const TelemetrySample &sample);
-
+    void clear();
 signals:
     void ruleTriggered(const RuleResult &result);
 
 private:
-    QList<Rule*> m_rules;
+    std::vector<std::unique_ptr<Rule>> m_rules;
 };
 
 #endif // RULEENGINE_H

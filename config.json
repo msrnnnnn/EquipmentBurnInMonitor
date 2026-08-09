@@ -4,6 +4,22 @@
         "port": 502,
         "unitId": 1
     },
+    "testProfile": {
+        "testDurationHours": 72,
+        "maxMotorTemp": 85.0,
+        "maxVibration": 4.5
+    },
+    "motorCommand": {
+        "address": 0,
+        "startValue": 65280,
+        "stopValue": 0
+    },
+    "modeCommand": {
+        "address": 200,
+        "manual": 0,
+        "auto": 1,
+        "test": 2
+    },
     "items": [
         { "name": "temperature", "address": 5, "scale": 0.01 },
         { "name": "current",     "address": 7, "scale": 0.01 },
@@ -13,7 +29,13 @@
         { "name": "power",       "address": 11, "scale": 0.01 }
     ],
     "rules": [
-        { "name": "temp_high", "type": "threshold", "threshold": 85.0 }
+        { "name": "temp_high",    "type": "threshold", "metric": "temperature", "threshold": 85.0 },
+        { "name": "current_high", "type": "threshold", "metric": "current",     "threshold": 20.0 },
+        { "name": "rpm_low",      "type": "threshold", "metric": "rpm",         "threshold": 300.0 },
+        { "name": "vib_high",     "type": "threshold", "metric": "vibration",   "threshold": 4.5 },
+        { "name": "voltage_high", "type": "threshold", "metric": "voltage",     "threshold": 420.0 },
+        { "name": "power_high",   "type": "threshold", "metric": "power",       "threshold": 8.0 },
+        { "name": "current_rate", "type": "rate",      "metric": "current",     "rateLimit": 8.0, "windowSeconds": 10.0 }
     ],
     "thresholdRegisters": [
         { "name": "temperature", "address": 100 },
@@ -23,10 +45,5 @@
         { "name": "voltage",    "address": 104 },
         { "name": "power",      "address": 105 }
       ],
-      "motorCommand": {
-          "address": 0,
-          "startValue": 65280,
-          "stopValue": 0
-      },
     "dataFilePath": "data/telemetry.db"
 }

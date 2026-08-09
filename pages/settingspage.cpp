@@ -4,6 +4,7 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLineEdit>
+#include <QComboBox>
 
 SettingsPage::SettingsPage(QWidget *parent)
     : QWidget{parent}
@@ -60,6 +61,18 @@ SettingsPage::SettingsPage(QWidget *parent)
     mainLayout->addWidget(connGroup);
     mainLayout->addWidget(thresholdGroup);
     mainLayout->addWidget(profileGroup);
+
+    // ── 模式切换 ──
+    auto *modeGroup = new QGroupBox("Mode");
+    auto *modeLayout = new QFormLayout(modeGroup);
+
+    m_modeCombo = new QComboBox;
+    m_modeCombo->addItem("Manual", 0);
+    m_modeCombo->addItem("Auto", 1);
+    m_modeCombo->addItem("Test", 2);
+    modeLayout->addRow("Mode:", m_modeCombo);
+
+    mainLayout->addWidget(modeGroup);
 }
 
 void SettingsPage::bindSensor(EquipmentData *sensor)
@@ -80,5 +93,10 @@ void SettingsPage::bindSensor(EquipmentData *sensor)
         sensor->provider().sendConnectRequest(
             m_hostInput->text(),
             m_portInput->text().toInt());
+    });
+
+    connect(m_modeCombo, &QComboBox::currentIndexChanged, this, [this, sensor](int index) {
+        int mode = m_modeCombo->itemData(index).toInt();
+        sensor->provider().modeChanged(mode);
     });
 }

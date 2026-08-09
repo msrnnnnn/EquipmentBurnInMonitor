@@ -2,6 +2,11 @@
 #include "device/currentdevice.h"
 #include "device/motortemperaturedevice.h"
 #include "device/simpleregisterdevice.h"
+#include "logging/logger.h"
+#include "rules/ratechangerule.h"
+#include "rules/thresholdrule.h"
+
+using burninsys::Logger;
 
 ServiceFacade::ServiceFacade(QObject *parent)
     : QObject{parent}
@@ -11,6 +16,10 @@ ServiceFacade::ServiceFacade(QObject *parent)
     connect(&m_configWatcher,&ConfigWatcher::updated,this,&ServiceFacade::onConfigUpdated);
     connect(&m_equipmentData.provider(),&EquipmentDataProvider::thresholdUpdated,this,&ServiceFacade::onThresholdUpdated);
     connect(&m_equipmentData.provider(),&EquipmentDataProvider::motorCommand,this,&ServiceFacade::onMotorCommand);
+    connect(&m_equipmentData.provider(),&EquipmentDataProvider::modeChanged,this,&ServiceFacade::onModeChanged);
+    connect(&m_ruleEngine, &RuleEngine::ruleTriggered, this, [](const RuleResult &result) {
+        Logger::instance().warn(QStringLiteral("Rule triggered: %1 - %2").arg(result.ruleName, result.message));
+    });
 }
 
 ServiceFacade::~ServiceFacade()
@@ -20,6 +29,7 @@ ServiceFacade::~ServiceFacade()
 
 void ServiceFacade::configure(const Config &config)
 {
+    m_ruleEngine.clear();
     auto tempDevice = std::make_unique<MotorTemperatureDevice>();
     tempDevice->setName("temperature");
     tempDevice->setUnitId(config.endpoint.unitId);
@@ -40,7 +50,20 @@ void ServiceFacade::configure(const Config &config)
         device->setAddress(config.items[i].address);
         device->setScale(config.items[i].scale);
         m_pollingScheduler->addTask(std::move(device), config.items[i].intervalMs);
-    }  
+    }
+    for(const RuleConfig &rule : config.rules)
+    {
+        if(rule.type == "threshold")
+        {
+            auto ruleptr = std::make_unique<ThresholdRule>(rule.name,rule.metric,rule.threshold);
+            m_ruleEngine.addRule(std::move(ruleptr));
+        }
+        else if(rule.type == "rate")
+        {
+            auto ruleptr = std::make_unique<RateChangeRule>(rule.name,rule.metric,rule.rateLimit);
+            m_ruleEngine.addRule(std::move(ruleptr));
+        }
+    }
 }
 
 void ServiceFacade::start(const Config &config)
@@ -51,12 +74,15 @@ void ServiceFacade::start(const Config &config)
     m_modbusSession = new ModbusSession;
     m_pollingScheduler = new PollingScheduler(m_modbusSession);
     m_sqliteRepository = new SqliteRepository;
-    m_sqliteRepository->open(config.dataFilePath);
     configure(config);
+    m_sqliteRepository->moveToThread(m_workThread);
     m_pollingScheduler->moveToThread(m_workThread);
     m_modbusSession->moveToThread(m_workThread);
     m_sqliteRepository->moveToThread(m_workThread);
     m_workThread->start();
+    QMetaObject::invokeMethod(m_modbusSession,[this,config](){
+        m_sqliteRepository->open(config.dataFilePath);
+    });
     QMetaObject::invokeMethod(m_modbusSession,[this,config](){
         m_modbusSession->start(config.endpoint.host, config.endpoint.port);
     });
@@ -90,17 +116,19 @@ EquipmentData *ServiceFacade::getEquipmentData()
 
 void ServiceFacade::onSampleReady(const TelemetrySample &sample)
 {
-    if (sample.name == "temperature") m_equipmentData.setTemperature(sample.value);
-    else if (sample.name == "current") m_equipmentData.setCurrent(sample.value);
-    else if (sample.name == "rpm") m_equipmentData.setRpm(sample.value);
-    else if (sample.name == "vibration") m_equipmentData.setVibration(sample.value);
-    else if (sample.name == "voltage") m_equipmentData.setVoltage(sample.value);
-    else if (sample.name == "power") m_equipmentData.setPower(sample.value);
+    if (sample.name == "temperature")       m_equipmentData.setTemperature(sample.value);
+    else if (sample.name == "current")      m_equipmentData.setCurrent(sample.value);
+    else if (sample.name == "rpm")          m_equipmentData.setRpm(sample.value);
+    else if (sample.name == "vibration")    m_equipmentData.setVibration(sample.value);
+    else if (sample.name == "voltage")      m_equipmentData.setVoltage(sample.value);
+    else if (sample.name == "power")        m_equipmentData.setPower(sample.value);
+
+    //规则阈值判断
+    m_ruleEngine.evaluate(sample);//指标异常信号触发点——ruleTriggered
 
     m_pendingRecord["time"] = sample.timestampMs;
     m_pendingRecord[sample.name] = sample.value;
     m_pendingRecord["anomaly"] = false;
-
     // 6个指标都到齐了才推
     if (m_pendingRecord.size() >= 8) {  // time + 6指标 + anomaly = 8
         m_equipmentData.provider().pushSample(m_pendingRecord);
@@ -158,6 +186,18 @@ void ServiceFacade::onMotorCommand()
         req.values.append(m_config.motorCommand.stopValue);
         m_isRunning = false;
     }
+    QMetaObject::invokeMethod(m_modbusSession,[this,req](){
+        m_modbusSession->write(req);
+    },Qt::QueuedConnection);
+}
+
+void ServiceFacade::onModeChanged(int mode)
+{
+    ModbusWriteRequest req;
+    req.type = RegisterType::HoldingRegister;
+    req.unitId = m_config.endpoint.unitId;
+    req.startAddress = m_config.modeCommand.address;
+    req.values.append(static_cast<quint16>(mode));
     QMetaObject::invokeMethod(m_modbusSession,[this,req](){
         m_modbusSession->write(req);
     },Qt::QueuedConnection);

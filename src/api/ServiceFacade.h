@@ -8,6 +8,7 @@
 #include "diagnostics/healthmonitor.h"
 #include "equipmentdata.h"
 #include "metrics/MetricsCollector.h"
+#include "rules/RuleEngine.h"
 #include "scheduler/PollingScheduler.h"
 #include <QObject>
 #include <QThread>
@@ -38,9 +39,10 @@ public slots:
     void onThresholdUpdated(double motorTemp, double current, double rpm, double vibration, double voltage, double power);
     void onConfigUpdated(const Config &config);
     void onMotorCommand();
+    void onModeChanged(int mode);
 private:
     void refreshUiState();
-
+    RuleEngine m_ruleEngine;
     EquipmentData m_equipmentData;
     HealthMonitor* m_healthMonitor = nullptr;
     PollingScheduler* m_pollingScheduler = nullptr;

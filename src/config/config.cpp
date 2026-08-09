@@ -32,6 +32,8 @@ Config ConfigLoader::loadFromJson(const QJsonObject &obj)
         cfg.endpoint = parseEndpoint(obj.value("endpoint").toObject());
     if (obj.contains("motorCommand"))
         cfg.motorCommand = parseMotorCommand(obj.value("motorCommand").toObject());
+    if (obj.contains("modeCommand"))
+        cfg.modeCommand = parseModeCommand(obj.value("modeCommand").toObject());
     if (obj.contains("items"))
         cfg.items = parseItems(obj.value("items").toArray());
     if (obj.contains("rules"))
@@ -58,6 +60,16 @@ MotorCommand ConfigLoader::parseMotorCommand(const QJsonObject &obj) const
     mc.address = obj.value("address").toInt(mc.address);
     mc.startValue = obj.value("startValue").toInt(mc.startValue);
     mc.stopValue = obj.value("stopValue").toInt(mc.stopValue);
+    return mc;
+}
+
+ModeCommand ConfigLoader::parseModeCommand(const QJsonObject &obj) const
+{
+    ModeCommand mc;
+    mc.address = obj.value("address").toInt(mc.address);
+    mc.manual = obj.value("manual").toInt(mc.manual);
+    mc.autoMode = obj.value("auto").toInt(mc.autoMode);
+    mc.test = obj.value("test").toInt(mc.test);
     return mc;
 }
 
@@ -88,6 +100,7 @@ QVector<RuleConfig> ConfigLoader::parseRules(const QJsonArray &arr) const
         RuleConfig rc;
         rc.name          = obj.value("name").toString();
         rc.type          = obj.value("type").toString("threshold");
+        rc.metric        = obj.value("metric").toString();
         rc.threshold     = obj.value("threshold").toDouble(0.0);
         rc.windowSeconds = obj.value("windowSeconds").toDouble(10.0);
         rc.rateLimit     = obj.value("rateLimit").toDouble(0.0);

@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QPushButton>
+#include <QComboBox>
 #include "equipmentdata.h"
 class QLineEdit;
 
@@ -26,6 +27,7 @@ private:
     QLineEdit *m_powerThreshold = nullptr;
     QPushButton *m_saveBtn = nullptr;
     QPushButton *m_connectBtn = nullptr;
+    QComboBox *m_modeCombo = nullptr;
 };
 
 #endif // SETTINGSPAGE_H

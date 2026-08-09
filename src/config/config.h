@@ -22,6 +22,15 @@ struct MotorCommand
     quint16 stopValue{0x0000};
 };
 
+// ── 模式切换 ──
+struct ModeCommand
+{
+    quint16 address{200};
+    quint16 manual{0};
+    quint16 autoMode{1};
+    quint16 test{2};
+};
+
 
 // ── 采集项：一个指标对应一个寄存器 ──
 struct PollItem
@@ -39,6 +48,7 @@ struct RuleConfig
 {
     QString name;            // 规则名，如 "temperature_high"
     QString type;            // "threshold" 或 "rate"
+    QString metric;
     double threshold{0.0};   // 阈值
     double windowSeconds{10.0}; // 滑动窗口（变化率规则用）
     double rateLimit{0.0};   // 变化率上限（变化率规则用）
@@ -67,6 +77,7 @@ struct Config
 {
     ModbusEndpoint endpoint;
     MotorCommand motorCommand;
+    ModeCommand modeCommand;
     QVector<PollItem> items;
     QVector<RuleConfig> rules;
     QVector<ThresholdRegisterConfig> thresholdRegisters;
@@ -84,6 +95,7 @@ public:
 private:
     ModbusEndpoint parseEndpoint(const QJsonObject &obj) const;
     MotorCommand parseMotorCommand(const QJsonObject &obj) const;
+    ModeCommand parseModeCommand(const QJsonObject &obj) const;
     QVector<PollItem> parseItems(const QJsonArray &arr) const;
     QVector<RuleConfig> parseRules(const QJsonArray &arr) const;
     QVector<ThresholdRegisterConfig> parseThresholdRegisters(const QJsonArray &arr) const;

@@ -60,6 +60,10 @@ qt_add_executable(EquipmentBurnInMonitor
     src/api/servicefacade.h src/api/servicefacade.cpp
     src/diagnostics/HealthMonitor.cpp src/diagnostics/HealthMonitor.h
     src/diagnostics/healthmonitor.h src/diagnostics/healthmonitor.cpp
+    src/rules/Rule.h src/rules/RuleEngine.cpp src/rules/RuleEngine.h
+    src/rules/thresholdrule.h src/rules/thresholdrule.cpp
+    src/rules/ratechangerule.h src/rules/ratechangerule.cpp
+
 
 )
 

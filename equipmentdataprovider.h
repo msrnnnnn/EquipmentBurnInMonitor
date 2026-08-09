@@ -24,6 +24,7 @@ signals:
     void thresholdUpdated(double motorTemp, double current, double rpm, double vibration, double voltage, double power);
     void connectRequested(const QString &host, int port);
     void motorCommand();
+    void modeChanged(int mode);
 private:
     QVariantList m_history;
     int m_maxHistory;
