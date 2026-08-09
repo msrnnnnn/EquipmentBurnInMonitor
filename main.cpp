@@ -25,10 +25,6 @@ int main(int argc, char *argv[])
     ConfigLoader loader;
     Config config = loader.loadFromFile("config.json");
 
-    //监听配置文件
-    ConfigWatcher watcher;
-    watcher.watch("config.json");
-
     // 回退检查
     if (config.endpoint.host.isEmpty() || config.items.isEmpty()) {
         Logger::instance().warn("Config load failed, using fallback");
@@ -39,7 +35,6 @@ int main(int argc, char *argv[])
 
     ServiceFacade facade;
     facade.start(config);
-
     MainWindow w;
     w.setSensor(facade.getEquipmentData());
 

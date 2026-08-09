@@ -24,6 +24,11 @@ void PollingScheduler::stop()
     if(m_timer.isActive()) m_timer.stop();
 }
 
+void PollingScheduler::tasksClear()
+{
+    m_tasks.clear();
+}
+
 void PollingScheduler::tick()
 {
     qint64 now = QDateTime::currentMSecsSinceEpoch();
@@ -44,11 +49,11 @@ void PollingScheduler::tick()
     }
 }
 
-void PollingScheduler::addTask(DeviceDriver *driver, int intervalMs)
+void PollingScheduler::addTask(std::unique_ptr<DeviceDriver> driver, int intervalMs)
 {
     PollingTask task;
-    task.driver = driver;
-    task.intervalMs =  intervalMs;
+    task.driver = std::move(driver);
+    task.intervalMs = intervalMs;
     task.lastPollMs = 0;
-    m_tasks.append(task);
+    m_tasks.emplace_back(std::move(task));
 }

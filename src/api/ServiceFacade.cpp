@@ -8,44 +8,45 @@ ServiceFacade::ServiceFacade(QObject *parent)
 {
     m_uiTimer.setInterval(1000);
     connect(&m_uiTimer, &QTimer::timeout, this, &ServiceFacade::refreshUiState);
+    connect(&m_configWatcher,&ConfigWatcher::updated,this,&ServiceFacade::onConfigUpdated);
+    connect(&m_equipmentData.provider(),&EquipmentDataProvider::thresholdUpdated,this,&ServiceFacade::onThresholdUpdated);
+    connect(&m_equipmentData.provider(),&EquipmentDataProvider::motorCommand,this,&ServiceFacade::onMotorCommand);
 }
 
 ServiceFacade::~ServiceFacade()
 {
     stop();
-    qDeleteAll(m_drivers);
 }
 
 void ServiceFacade::configure(const Config &config)
 {
-    MotorTemperatureDevice* tempDevice = new MotorTemperatureDevice(m_pollingScheduler);
+    auto tempDevice = std::make_unique<MotorTemperatureDevice>();
     tempDevice->setName("temperature");
     tempDevice->setUnitId(config.endpoint.unitId);
     tempDevice->setAddress(config.items[0].address);
     tempDevice->setScale(config.items[0].scale);
-    m_drivers.append(tempDevice);
-    CurrentDevice* currentDevice = new CurrentDevice(m_pollingScheduler);
+    m_pollingScheduler->addTask(std::move(tempDevice), config.items[0].intervalMs);
+    auto currentDevice = std::make_unique<CurrentDevice>();
     currentDevice->setName("current");
     currentDevice->setUnitId(config.endpoint.unitId);
     currentDevice->setAddress(config.items[1].address);
     currentDevice->setScale(config.items[1].scale);
-    m_drivers.append(currentDevice);
+    m_pollingScheduler->addTask(std::move(currentDevice), config.items[1].intervalMs);
     for(int i = 2; i < config.items.size(); ++i)
     {
-        SimpleRegisterDevice* device = new SimpleRegisterDevice(m_pollingScheduler);
+        auto device = std::make_unique<SimpleRegisterDevice>();
         device->setName(config.items[i].name);
         device->setUnitId(config.endpoint.unitId);
         device->setAddress(config.items[i].address);
         device->setScale(config.items[i].scale);
-        m_drivers.append(device);
-        m_pollingScheduler->addTask(device, config.items[i].intervalMs);
-    }
-    m_pollingScheduler->addTask(tempDevice, config.items[0].intervalMs);
-    m_pollingScheduler->addTask(currentDevice, config.items[1].intervalMs);
+        m_pollingScheduler->addTask(std::move(device), config.items[i].intervalMs);
+    }  
 }
 
 void ServiceFacade::start(const Config &config)
 {
+    m_config = config;
+    m_configWatcher.watch("config.json");
     m_workThread = new QThread(this);
     m_modbusSession = new ModbusSession;
     m_pollingScheduler = new PollingScheduler(m_modbusSession);
@@ -113,6 +114,53 @@ void ServiceFacade::onSampleReady(const TelemetrySample &sample)
     },Qt::QueuedConnection);
     ++m_telemetryCount;
     emit telemetryCountChanged(m_telemetryCount);
+}
+
+void ServiceFacade::onThresholdUpdated(double motorTemp, double current, double rpm, double vibration, double voltage, double power)
+{
+    double values[] = {motorTemp, current, rpm, vibration, voltage, power};
+    auto& regs = m_config.thresholdRegisters;
+
+    for(int i = 0; i < regs.size() && i < 6; ++i)
+    {
+        ModbusWriteRequest req;
+        req.startAddress = regs[i].address;
+        req.values.append(static_cast<quint16>(values[i]));
+        req.type = RegisterType::HoldingRegister;
+        req.unitId = m_config.endpoint.unitId;
+        QMetaObject::invokeMethod(m_modbusSession,[this,req](){
+            m_modbusSession->write(req);
+        },Qt::QueuedConnection);
+    }
+}
+
+void ServiceFacade::onConfigUpdated(const Config &config)
+{
+    m_config = config;
+    QMetaObject::invokeMethod(m_pollingScheduler,&PollingScheduler::stop);
+    QMetaObject::invokeMethod(m_pollingScheduler,&PollingScheduler::tasksClear);
+    configure(config);
+    QMetaObject::invokeMethod(m_pollingScheduler,&PollingScheduler::start);
+}
+
+void ServiceFacade::onMotorCommand()
+{
+    ModbusWriteRequest req;
+    req.type = RegisterType::Coil;
+    req.unitId = m_config.endpoint.unitId;
+    req.startAddress = m_config.motorCommand.address;
+    if(!m_isRunning)
+    {
+        req.values.append(m_config.motorCommand.startValue);
+        m_isRunning = true;
+    }
+    else{
+        req.values.append(m_config.motorCommand.stopValue);
+        m_isRunning = false;
+    }
+    QMetaObject::invokeMethod(m_modbusSession,[this,req](){
+        m_modbusSession->write(req);
+    },Qt::QueuedConnection);
 }
 
 void ServiceFacade::refreshUiState()

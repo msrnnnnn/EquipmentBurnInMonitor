@@ -14,6 +14,15 @@ struct ModbusEndpoint
     int timeoutMs{2000};     // 读写超时
 };
 
+// ── 启停 ──
+struct MotorCommand
+{
+    quint16 address{0};
+    quint16 startValue{0xFF00};
+    quint16 stopValue{0x0000};
+};
+
+
 // ── 采集项：一个指标对应一个寄存器 ──
 struct PollItem
 {
@@ -35,6 +44,12 @@ struct RuleConfig
     double rateLimit{0.0};   // 变化率上限（变化率规则用）
 };
 
+struct ThresholdRegisterConfig
+{
+    QString name;
+    quint16 address{0};
+};
+
 // ── 老化测试规程 ──
 struct TestProfile
 {
@@ -51,8 +66,10 @@ struct TestProfile
 struct Config
 {
     ModbusEndpoint endpoint;
+    MotorCommand motorCommand;
     QVector<PollItem> items;
     QVector<RuleConfig> rules;
+    QVector<ThresholdRegisterConfig> thresholdRegisters;
     TestProfile testProfile;
     QString dataFilePath{"data/telemetry.db"};
 };
@@ -66,7 +83,9 @@ public:
 
 private:
     ModbusEndpoint parseEndpoint(const QJsonObject &obj) const;
+    MotorCommand parseMotorCommand(const QJsonObject &obj) const;
     QVector<PollItem> parseItems(const QJsonArray &arr) const;
     QVector<RuleConfig> parseRules(const QJsonArray &arr) const;
+    QVector<ThresholdRegisterConfig> parseThresholdRegisters(const QJsonArray &arr) const;
 };
 

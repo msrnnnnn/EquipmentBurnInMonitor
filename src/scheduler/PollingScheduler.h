@@ -8,7 +8,7 @@
 #include <QList>
 
 struct PollingTask {
-    DeviceDriver *driver;     // 哪个驱动
+    std::unique_ptr<DeviceDriver> driver;     // 哪个驱动
     int intervalMs;           // 轮询间隔
     qint64 lastPollMs{0};     // 上次轮询时间
 };
@@ -18,15 +18,16 @@ class PollingScheduler : public QObject
     Q_OBJECT
 public:
     explicit PollingScheduler(ModbusSession *session, QObject *parent = nullptr);
-    void addTask(DeviceDriver *driver, int intervalMs);
+    void addTask(std::unique_ptr<DeviceDriver> driver, int intervalMs);
     void start();
     void stop();
+    void tasksClear();
 signals:
     void sampleReady(TelemetrySample sample);
 private slots:
     void tick();
 private:
-    QList<PollingTask> m_tasks;
+    std::vector<PollingTask> m_tasks;
     ModbusSession *m_session = nullptr;
     QTimer m_timer;
 };

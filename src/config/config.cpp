@@ -30,10 +30,14 @@ Config ConfigLoader::loadFromJson(const QJsonObject &obj)
     Config cfg;
     if (obj.contains("endpoint"))
         cfg.endpoint = parseEndpoint(obj.value("endpoint").toObject());
+    if (obj.contains("motorCommand"))
+        cfg.motorCommand = parseMotorCommand(obj.value("motorCommand").toObject());
     if (obj.contains("items"))
         cfg.items = parseItems(obj.value("items").toArray());
     if (obj.contains("rules"))
         cfg.rules = parseRules(obj.value("rules").toArray());
+    if (obj.contains("thresholdRegisters"))
+        cfg.thresholdRegisters = parseThresholdRegisters(obj.value("thresholdRegisters").toArray());
     cfg.dataFilePath = obj.value("dataFilePath").toString(cfg.dataFilePath);
     return cfg;
 }
@@ -46,6 +50,15 @@ ModbusEndpoint ConfigLoader::parseEndpoint(const QJsonObject &obj) const
     ep.unitId    = obj.value("unitId").toInt(ep.unitId);
     ep.timeoutMs = obj.value("timeoutMs").toInt(ep.timeoutMs);
     return ep;
+}
+
+MotorCommand ConfigLoader::parseMotorCommand(const QJsonObject &obj) const
+{
+    MotorCommand mc;
+    mc.address = obj.value("address").toInt(mc.address);
+    mc.startValue = obj.value("startValue").toInt(mc.startValue);
+    mc.stopValue = obj.value("stopValue").toInt(mc.stopValue);
+    return mc;
 }
 
 QVector<PollItem> ConfigLoader::parseItems(const QJsonArray &arr) const
@@ -81,5 +94,19 @@ QVector<RuleConfig> ConfigLoader::parseRules(const QJsonArray &arr) const
         rules.push_back(rc);
     }
     return rules;
+}
+
+QVector<ThresholdRegisterConfig> ConfigLoader::parseThresholdRegisters(const QJsonArray &arr) const
+{
+    QVector<ThresholdRegisterConfig> thresholdRegisters;
+    for (const auto &value : arr)
+    {
+        const auto obj = value.toObject();
+        ThresholdRegisterConfig rc;
+        rc.name          = obj.value("name").toString();
+        rc.address       = obj.value("address").toInt();
+        thresholdRegisters.push_back(rc);
+    }
+    return thresholdRegisters;
 }
 

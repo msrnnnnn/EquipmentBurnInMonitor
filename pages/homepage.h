@@ -17,7 +17,6 @@ public:
     void bindSensor(EquipmentData *sensor);
     void updateStatus(bool healthy);
     void updateCount(int count);
-
 private:
     void onHistoryUpdated(const QVariantList &datas);
 

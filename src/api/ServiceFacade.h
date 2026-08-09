@@ -1,6 +1,7 @@
 #ifndef SERVICEFACADE_H
 #define SERVICEFACADE_H
 
+#include "config/ConfigWatcher.h"
 #include "config/config.h"
 #include "data/SqliteRepository.h"
 #include "data/datacache.h"
@@ -34,7 +35,9 @@ signals:
 
 public slots:
     void onSampleReady(const TelemetrySample &s);
-
+    void onThresholdUpdated(double motorTemp, double current, double rpm, double vibration, double voltage, double power);
+    void onConfigUpdated(const Config &config);
+    void onMotorCommand();
 private:
     void refreshUiState();
 
@@ -46,11 +49,13 @@ private:
     DataCache m_cache;
     SqliteRepository* m_sqliteRepository = nullptr;
     QThread* m_workThread = nullptr;
-    QList<DeviceDriver*> m_drivers;
     QTimer m_uiTimer;
     bool m_modbusConnected{false};
+    bool m_isRunning{false};
     int m_telemetryCount{0};
     QVariantMap m_pendingRecord;
+    Config m_config;
+    ConfigWatcher m_configWatcher;
 };
 
 #endif // SERVICEFACADE_H

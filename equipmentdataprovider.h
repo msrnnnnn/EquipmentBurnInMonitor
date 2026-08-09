@@ -23,6 +23,7 @@ signals:
     void realtimeDataReady(QVariantMap record);
     void thresholdUpdated(double motorTemp, double current, double rpm, double vibration, double voltage, double power);
     void connectRequested(const QString &host, int port);
+    void motorCommand();
 private:
     QVariantList m_history;
     int m_maxHistory;
