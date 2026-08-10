@@ -17,6 +17,8 @@ public:
     void bindSensor(EquipmentData *sensor);
     void updateStatus(bool healthy);
     void updateCount(int count);
+    void updateCountdown(int seconds);
+    void updateVerdict(const QString &verdict);
 private:
     void onHistoryUpdated(const QVariantList &datas);
 
@@ -32,6 +34,8 @@ private:
     QPushButton *m_ssBtn = nullptr;
     QLabel *m_statusLabel = nullptr;
     QLabel *m_countLabel = nullptr;
+    QLabel *m_countdownLabel = nullptr;
+    QLabel *m_verdictLabel = nullptr;
 };
 
 #endif // HOMEPAGE_H

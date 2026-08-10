@@ -34,6 +34,8 @@ Config ConfigLoader::loadFromJson(const QJsonObject &obj)
         cfg.motorCommand = parseMotorCommand(obj.value("motorCommand").toObject());
     if (obj.contains("modeCommand"))
         cfg.modeCommand = parseModeCommand(obj.value("modeCommand").toObject());
+    if (obj.contains("testProfile"))
+        cfg.testProfile = parseTestProfile(obj.value("testProfile").toObject());
     if (obj.contains("items"))
         cfg.items = parseItems(obj.value("items").toArray());
     if (obj.contains("rules"))
@@ -71,6 +73,15 @@ ModeCommand ConfigLoader::parseModeCommand(const QJsonObject &obj) const
     mc.autoMode = obj.value("auto").toInt(mc.autoMode);
     mc.test = obj.value("test").toInt(mc.test);
     return mc;
+}
+
+TestProfile ConfigLoader::parseTestProfile(const QJsonObject &obj) const
+{
+    TestProfile tp;
+    tp.testDurationHours = obj.value("testDurationHours").toInt(tp.testDurationHours);
+    tp.maxMotorTemp = obj.value("maxMotorTemp").toDouble(tp.maxMotorTemp);
+    tp.maxVibration = obj.value("maxVibration").toDouble(tp.maxVibration);
+    return tp;
 }
 
 QVector<PollItem> ConfigLoader::parseItems(const QJsonArray &arr) const

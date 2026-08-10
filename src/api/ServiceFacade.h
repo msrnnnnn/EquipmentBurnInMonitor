@@ -10,6 +10,7 @@
 #include "metrics/MetricsCollector.h"
 #include "rules/RuleEngine.h"
 #include "scheduler/PollingScheduler.h"
+#include "test/TestRunner.h"
 #include <QObject>
 #include <QThread>
 #include <QTimer>
@@ -33,7 +34,8 @@ signals:
     void modbusConnectedChanged(bool connected);
     void telemetryCountChanged(int count);
     void healthyChanged(bool healthy);
-
+    void remainingSecondsChanged(int remainingSeconds);
+    void testVerdictChanged(const QString &verdict);
 public slots:
     void onSampleReady(const TelemetrySample &s);
     void onThresholdUpdated(double motorTemp, double current, double rpm, double vibration, double voltage, double power);
@@ -58,6 +60,7 @@ private:
     QVariantMap m_pendingRecord;
     Config m_config;
     ConfigWatcher m_configWatcher;
+    TestRunner m_testRunner;
 };
 
 #endif // SERVICEFACADE_H

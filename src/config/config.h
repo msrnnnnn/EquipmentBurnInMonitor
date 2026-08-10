@@ -78,10 +78,10 @@ struct Config
     ModbusEndpoint endpoint;
     MotorCommand motorCommand;
     ModeCommand modeCommand;
+    TestProfile testProfile;
     QVector<PollItem> items;
     QVector<RuleConfig> rules;
     QVector<ThresholdRegisterConfig> thresholdRegisters;
-    TestProfile testProfile;
     QString dataFilePath{"data/telemetry.db"};
 };
 
@@ -96,6 +96,7 @@ private:
     ModbusEndpoint parseEndpoint(const QJsonObject &obj) const;
     MotorCommand parseMotorCommand(const QJsonObject &obj) const;
     ModeCommand parseModeCommand(const QJsonObject &obj) const;
+    TestProfile parseTestProfile(const QJsonObject &obj) const;
     QVector<PollItem> parseItems(const QJsonArray &arr) const;
     QVector<RuleConfig> parseRules(const QJsonArray &arr) const;
     QVector<ThresholdRegisterConfig> parseThresholdRegisters(const QJsonArray &arr) const;

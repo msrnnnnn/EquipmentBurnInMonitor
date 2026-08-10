@@ -29,6 +29,13 @@ HomePage::HomePage(QWidget *parent)
     statusBar->addSpacing(16);
     statusBar->addWidget(m_countLabel);
     statusBar->addStretch(1);
+    m_countdownLabel = new QLabel("剩余: --:--:--");
+    m_countdownLabel->setStyleSheet("color: #93c5fd; font-size: 14px; font-weight: bold;");
+    m_verdictLabel = new QLabel("");
+    m_verdictLabel->setStyleSheet("color: #94a3b8; font-size: 14px; font-weight: bold;");
+    statusBar->addWidget(m_countdownLabel);
+    statusBar->addSpacing(16);
+    statusBar->addWidget(m_verdictLabel);
     root->addLayout(statusBar);
 
     // ── 六个指标卡片 ──
@@ -258,4 +265,28 @@ void HomePage::updateStatus(bool healthy)
 void HomePage::updateCount(int count)
 {
     m_countLabel->setText(QStringLiteral("采集: %1").arg(count));
+}
+
+void HomePage::updateCountdown(int seconds)
+{
+    int h = seconds / 3600;
+    int m = (seconds % 3600) / 60;
+    int s = seconds % 60;
+    m_countdownLabel->setText(QStringLiteral("剩余: %1:%2:%3")
+        .arg(h, 2, 10, QChar('0'))
+        .arg(m, 2, 10, QChar('0'))
+        .arg(s, 2, 10, QChar('0')));
+}
+
+void HomePage::updateVerdict(const QString &verdict)
+{
+    if (verdict == "pass") {
+        m_verdictLabel->setText("PASS");
+        m_verdictLabel->setStyleSheet("color: #22c55e; font-size: 16px; font-weight: bold;");
+    } else if (verdict == "fail") {
+        m_verdictLabel->setText("FAIL");
+        m_verdictLabel->setStyleSheet("color: #ef4444; font-size: 16px; font-weight: bold;");
+    } else {
+        m_verdictLabel->setText("");
+    }
 }

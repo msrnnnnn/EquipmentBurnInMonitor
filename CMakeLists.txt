@@ -63,6 +63,7 @@ qt_add_executable(EquipmentBurnInMonitor
     src/rules/Rule.h src/rules/RuleEngine.cpp src/rules/RuleEngine.h
     src/rules/thresholdrule.h src/rules/thresholdrule.cpp
     src/rules/ratechangerule.h src/rules/ratechangerule.cpp
+    src/test/TestRunner.cpp src/test/TestRunner.h
 
 
 )

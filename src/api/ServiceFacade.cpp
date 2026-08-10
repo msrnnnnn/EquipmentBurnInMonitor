@@ -20,6 +20,8 @@ ServiceFacade::ServiceFacade(QObject *parent)
     connect(&m_ruleEngine, &RuleEngine::ruleTriggered, this, [](const RuleResult &result) {
         Logger::instance().warn(QStringLiteral("Rule triggered: %1 - %2").arg(result.ruleName, result.message));
     });
+    connect(&m_testRunner,&TestRunner::tick,this,&ServiceFacade::remainingSecondsChanged);
+    connect(&m_testRunner,&TestRunner::finished,this,&ServiceFacade::testVerdictChanged);
 }
 
 ServiceFacade::~ServiceFacade()
@@ -80,7 +82,7 @@ void ServiceFacade::start(const Config &config)
     m_modbusSession->moveToThread(m_workThread);
     m_sqliteRepository->moveToThread(m_workThread);
     m_workThread->start();
-    QMetaObject::invokeMethod(m_modbusSession,[this,config](){
+    QMetaObject::invokeMethod(m_sqliteRepository,[this,config](){
         m_sqliteRepository->open(config.dataFilePath);
     });
     QMetaObject::invokeMethod(m_modbusSession,[this,config](){
@@ -89,6 +91,8 @@ void ServiceFacade::start(const Config &config)
     QMetaObject::invokeMethod(m_pollingScheduler, &PollingScheduler::start);
     m_healthMonitor = new HealthMonitor(m_modbusSession,this);
     m_healthMonitor->start();
+    m_testRunner.setProfile(config.testProfile);
+    m_testRunner.start();
     connect(m_healthMonitor, &HealthMonitor::degraded,m_modbusSession,&ModbusSession::reconnect);
     connect(m_pollingScheduler,&PollingScheduler::sampleReady,m_healthMonitor,&HealthMonitor::onSample);
     connect(m_pollingScheduler, &PollingScheduler::sampleReady, this, &ServiceFacade::onSampleReady);
@@ -98,6 +102,7 @@ void ServiceFacade::start(const Config &config)
 void ServiceFacade::stop()
 {
     m_uiTimer.stop();
+    m_testRunner.stop();
     if(m_workThread && m_workThread->isRunning())
     {
         QMetaObject::invokeMethod(m_modbusSession,&ModbusSession::stop,Qt::BlockingQueuedConnection);
@@ -134,7 +139,7 @@ void ServiceFacade::onSampleReady(const TelemetrySample &sample)
         m_equipmentData.provider().pushSample(m_pendingRecord);
         m_pendingRecord.clear();
     }
-
+    m_testRunner.recordSample(sample.name,sample.value);
     m_cache.put(sample);
     m_metricsCollector.record(sample);
     QMetaObject::invokeMethod(m_sqliteRepository,[=](){
