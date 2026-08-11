@@ -80,3 +80,4 @@ CMakeLists.txt.user*
 .rcc/
 .uic/
 /build*/
+-e ".codegraph/\n.mimosa/\nAGENTS.md\nCLAUDE.md" 
