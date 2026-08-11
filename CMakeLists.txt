@@ -56,9 +56,7 @@ qt_add_executable(EquipmentBurnInMonitor
     src/device/motortemperaturedevice.h src/device/motortemperaturedevice.cpp
     src/device/currentdevice.h src/device/currentdevice.cpp
     src/scheduler/PollingScheduler.h src/scheduler/PollingScheduler.cpp
-    src/api/ServiceFacade.cpp src/api/ServiceFacade.h
     src/api/servicefacade.h src/api/servicefacade.cpp
-    src/diagnostics/HealthMonitor.cpp src/diagnostics/HealthMonitor.h
     src/diagnostics/healthmonitor.h src/diagnostics/healthmonitor.cpp
     src/rules/Rule.h src/rules/RuleEngine.cpp src/rules/RuleEngine.h
     src/rules/thresholdrule.h src/rules/thresholdrule.cpp

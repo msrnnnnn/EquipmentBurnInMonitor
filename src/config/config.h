@@ -52,12 +52,14 @@ struct RuleConfig
     double threshold{0.0};   // 阈值
     double windowSeconds{10.0}; // 滑动窗口（变化率规则用）
     double rateLimit{0.0};   // 变化率上限（变化率规则用）
+    bool isUpper{true};      // 判断阈值之上还是之下
 };
 
 struct ThresholdRegisterConfig
 {
     QString name;
     quint16 address{0};
+    double scale{1.0};
 };
 
 // ── 老化测试规程 ──

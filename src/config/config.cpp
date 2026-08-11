@@ -115,6 +115,7 @@ QVector<RuleConfig> ConfigLoader::parseRules(const QJsonArray &arr) const
         rc.threshold     = obj.value("threshold").toDouble(0.0);
         rc.windowSeconds = obj.value("windowSeconds").toDouble(10.0);
         rc.rateLimit     = obj.value("rateLimit").toDouble(0.0);
+        rc.isUpper       = obj.value("isUpper").toBool(true);
         rules.push_back(rc);
     }
     return rules;
@@ -129,6 +130,7 @@ QVector<ThresholdRegisterConfig> ConfigLoader::parseThresholdRegisters(const QJs
         ThresholdRegisterConfig rc;
         rc.name          = obj.value("name").toString();
         rc.address       = obj.value("address").toInt();
+        rc.scale = obj.value("scale").toDouble(1.0);
         thresholdRegisters.push_back(rc);
     }
     return thresholdRegisters;

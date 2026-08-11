@@ -40,14 +40,11 @@ int main(int argc, char *argv[])
 
     // ServiceFacade 状态 → UI
     HomePage *home = w.homePage();
-    QObject::connect(&facade, &ServiceFacade::healthyChanged,
-                     home, &HomePage::updateStatus);
-    QObject::connect(&facade, &ServiceFacade::telemetryCountChanged,
-                     home, &HomePage::updateCount);
-    QObject::connect(&facade, &ServiceFacade::remainingSecondsChanged,
-                     home, &HomePage::updateCountdown);
-    QObject::connect(&facade, &ServiceFacade::testVerdictChanged,
-                     home, &HomePage::updateVerdict);
+    QObject::connect(&facade, &ServiceFacade::healthyChanged, home, &HomePage::updateStatus);
+    QObject::connect(&facade, &ServiceFacade::telemetryCountChanged, home, &HomePage::updateCount);
+    QObject::connect(&facade, &ServiceFacade::remainingSecondsChanged, home, &HomePage::updateCountdown);
+    QObject::connect(&facade, &ServiceFacade::testVerdictChanged, home, &HomePage::updateVerdict);
+    QObject::connect(&facade, &ServiceFacade::motorStateChanged, home, &HomePage::updateMotorState);
 
 
 

@@ -209,16 +209,6 @@ void HomePage::bindSensor(EquipmentData *sensor)
     // ── 启停按钮切换 ──
     static bool isRunning = false;
     connect(m_ssBtn, &QPushButton::clicked, &sensor->provider(), &EquipmentDataProvider::motorCommand);
-    connect(m_ssBtn, &QPushButton::clicked, this, [this]() {
-        isRunning = !isRunning;
-        if (isRunning) {
-            m_ssBtn->setText("停止");
-            m_ssBtn->setStyleSheet("background-color: #ef4444; color: white; font-weight: bold; padding: 6px 16px; border-radius: 4px;");
-        } else {
-            m_ssBtn->setText("启动");
-            m_ssBtn->setStyleSheet("background-color: #2563eb; color: white; font-weight: bold; padding: 6px 16px; border-radius: 4px;");
-        }
-    });
 }
 
 void HomePage::onHistoryUpdated(const QVariantList &datas)
@@ -288,5 +278,16 @@ void HomePage::updateVerdict(const QString &verdict)
         m_verdictLabel->setStyleSheet("color: #ef4444; font-size: 16px; font-weight: bold;");
     } else {
         m_verdictLabel->setText("");
+    }
+}
+
+void HomePage::updateMotorState(bool running)
+{
+    if (running) {
+        m_ssBtn->setText("停止");
+        m_ssBtn->setStyleSheet("background-color: #ef4444; color: white; font-weight: bold; padding: 6px 16px; border-radius: 4px;");
+    } else {
+        m_ssBtn->setText("启动");
+        m_ssBtn->setStyleSheet("background-color: #2563eb; color: white; font-weight: bold; padding: 6px 16px; border-radius: 4px;");
     }
 }

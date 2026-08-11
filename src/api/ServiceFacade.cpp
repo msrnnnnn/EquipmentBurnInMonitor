@@ -57,7 +57,7 @@ void ServiceFacade::configure(const Config &config)
     {
         if(rule.type == "threshold")
         {
-            auto ruleptr = std::make_unique<ThresholdRule>(rule.name,rule.metric,rule.threshold);
+            auto ruleptr = std::make_unique<ThresholdRule>(rule.name,rule.metric,rule.threshold,rule.isUpper);
             m_ruleEngine.addRule(std::move(ruleptr));
         }
         else if(rule.type == "rate")
@@ -103,6 +103,7 @@ void ServiceFacade::stop()
 {
     m_uiTimer.stop();
     m_testRunner.stop();
+    if(m_healthMonitor) m_healthMonitor->stop();
     if(m_workThread && m_workThread->isRunning())
     {
         QMetaObject::invokeMethod(m_modbusSession,&ModbusSession::stop,Qt::BlockingQueuedConnection);
@@ -111,6 +112,7 @@ void ServiceFacade::stop()
         m_workThread->wait();
         delete m_pollingScheduler;
         delete m_modbusSession;
+        delete m_sqliteRepository;
     }
 }
 
@@ -128,12 +130,19 @@ void ServiceFacade::onSampleReady(const TelemetrySample &sample)
     else if (sample.name == "voltage")      m_equipmentData.setVoltage(sample.value);
     else if (sample.name == "power")        m_equipmentData.setPower(sample.value);
 
-    //规则阈值判断
-    m_ruleEngine.evaluate(sample);//指标异常信号触发点——ruleTriggered
-
     m_pendingRecord["time"] = sample.timestampMs;
     m_pendingRecord[sample.name] = sample.value;
     m_pendingRecord["anomaly"] = false;
+
+    //规则阈值判断
+    auto results = m_ruleEngine.evaluate(sample);
+    for (const auto &r : std::as_const(results)) {
+        if (r.triggered) {
+            m_pendingRecord["anomaly"] = true;
+            break;
+        }
+    }
+
     // 6个指标都到齐了才推
     if (m_pendingRecord.size() >= 8) {  // time + 6指标 + anomaly = 8
         m_equipmentData.provider().pushSample(m_pendingRecord);
@@ -158,7 +167,7 @@ void ServiceFacade::onThresholdUpdated(double motorTemp, double current, double 
     {
         ModbusWriteRequest req;
         req.startAddress = regs[i].address;
-        req.values.append(static_cast<quint16>(values[i]));
+        req.values.append(static_cast<quint16>(values[i] / regs[i].scale));
         req.type = RegisterType::HoldingRegister;
         req.unitId = m_config.endpoint.unitId;
         QMetaObject::invokeMethod(m_modbusSession,[this,req](){
@@ -191,6 +200,7 @@ void ServiceFacade::onMotorCommand()
         req.values.append(m_config.motorCommand.stopValue);
         m_isRunning = false;
     }
+    emit motorStateChanged(m_isRunning);
     QMetaObject::invokeMethod(m_modbusSession,[this,req](){
         m_modbusSession->write(req);
     },Qt::QueuedConnection);

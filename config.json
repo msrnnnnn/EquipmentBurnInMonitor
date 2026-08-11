@@ -21,7 +21,7 @@
         "test": 2
     },
     "items": [
-        { "name": "temperature", "address": 5, "scale": 0.01 },
+        { "name": "temperature", "address": 5, "scale": 1.0 },
         { "name": "current",     "address": 7, "scale": 0.01 },
         { "name": "rpm",         "address": 8, "scale": 1.0 },
         { "name": "vibration",   "address": 9, "scale": 0.01 },
@@ -31,19 +31,19 @@
     "rules": [
         { "name": "temp_high",    "type": "threshold", "metric": "temperature", "threshold": 85.0 },
         { "name": "current_high", "type": "threshold", "metric": "current",     "threshold": 20.0 },
-        { "name": "rpm_low",      "type": "threshold", "metric": "rpm",         "threshold": 300.0 },
+        { "name": "rpm_low",      "type": "threshold", "metric": "rpm",         "threshold": 300.0 ,"isUpper": false},
         { "name": "vib_high",     "type": "threshold", "metric": "vibration",   "threshold": 4.5 },
         { "name": "voltage_high", "type": "threshold", "metric": "voltage",     "threshold": 420.0 },
         { "name": "power_high",   "type": "threshold", "metric": "power",       "threshold": 8.0 },
         { "name": "current_rate", "type": "rate",      "metric": "current",     "rateLimit": 8.0, "windowSeconds": 10.0 }
     ],
     "thresholdRegisters": [
-        { "name": "temperature", "address": 100 },
-        { "name": "current",    "address": 101 },
-        { "name": "rpm",        "address": 102 },
-        { "name": "vibration",  "address": 103 },
-        { "name": "voltage",    "address": 104 },
-        { "name": "power",      "address": 105 }
+        { "name": "temperature", "address": 100, "scale": 1.0 },
+        { "name": "current",    "address": 101, "scale": 0.01 },
+        { "name": "rpm",        "address": 102, "scale": 1.0 },
+        { "name": "vibration",  "address": 103, "scale": 0.01 },
+        { "name": "voltage",    "address": 104, "scale": 0.1 },
+        { "name": "power",      "address": 105, "scale": 0.01 }
       ],
     "dataFilePath": "data/telemetry.db"
 }

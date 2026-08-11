@@ -36,6 +36,7 @@ signals:
     void healthyChanged(bool healthy);
     void remainingSecondsChanged(int remainingSeconds);
     void testVerdictChanged(const QString &verdict);
+    void motorStateChanged(bool running);
 public slots:
     void onSampleReady(const TelemetrySample &s);
     void onThresholdUpdated(double motorTemp, double current, double rpm, double vibration, double voltage, double power);

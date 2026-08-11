@@ -1,5 +1,4 @@
 #include "RuleEngine.h"
-#include "logging/logger.h"
 
 RuleEngine::RuleEngine(QObject *parent)
     : QObject{parent}
@@ -12,14 +11,17 @@ void RuleEngine::addRule(std::unique_ptr<Rule> rule)
     }
 }
 
-void RuleEngine::evaluate(const TelemetrySample &sample)
+QList<RuleResult> RuleEngine::evaluate(const TelemetrySample &sample)
 {
+    QList<RuleResult> results;
     for (const auto& rule : m_rules) {
         RuleResult result = rule->evaluate(sample);
         if (result.triggered) {
             emit ruleTriggered(result);
+            results.append(result);
         }
     }
+    return results;
 }
 
 void RuleEngine::clear()

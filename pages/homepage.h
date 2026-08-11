@@ -19,6 +19,8 @@ public:
     void updateCount(int count);
     void updateCountdown(int seconds);
     void updateVerdict(const QString &verdict);
+public slots:
+    void updateMotorState(bool running);
 private:
     void onHistoryUpdated(const QVariantList &datas);
 

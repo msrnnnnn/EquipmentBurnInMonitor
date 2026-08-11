@@ -60,7 +60,11 @@ ModbusResponse ModbusTcpClient::writeRegisters(const ModbusWriteRequest &req)
     if(m_ctx == nullptr) return ModbusResponse{};
     ModbusResponse rsp;
     modbus_set_slave(m_ctx, req.unitId);
-    int rc = modbus_write_registers(m_ctx,req.startAddress,req.values.size(),req.values.data());
+    int rc;
+    if(req.type == RegisterType::HoldingRegister)
+        rc = modbus_write_registers(m_ctx,req.startAddress,req.values.size(),req.values.data());
+    if(req.type == RegisterType::Coil)
+        rc = modbus_write_bit(m_ctx,req.startAddress,req.values[0]);
     int savedErr = errno;
     if(rc != -1){
         rsp.success = true;
