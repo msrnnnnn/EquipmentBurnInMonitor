@@ -89,7 +89,6 @@ target_link_libraries(EquipmentBurnInMonitor PRIVATE
 
 target_compile_definitions(EquipmentBurnInMonitor PRIVATE FD_SETSIZE=1024)
 target_link_libraries(EquipmentBurnInMonitor PRIVATE Qt${QT_VERSION_MAJOR}::Core)
-target_link_libraries(EquipmentBurnInMonitor PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 
 if(Qt6_VERSION VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.EquipmentBurnInMonitor)

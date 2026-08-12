@@ -2,6 +2,7 @@
 
 void MetricsCollector::record(const TelemetrySample &sample)
 {
+    if (sample.quality != "good") return;
     QWriteLocker locker(&m_lock);
     auto &m = m_metrics[sample.name];
 

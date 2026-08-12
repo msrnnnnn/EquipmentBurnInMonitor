@@ -1,10 +1,9 @@
 #include "servicefacade.h"
-#include "device/currentdevice.h"
-#include "device/motortemperaturedevice.h"
-#include "device/simpleregisterdevice.h"
 #include "logging/logger.h"
 #include "rules/ratechangerule.h"
 #include "rules/thresholdrule.h"
+#include <QApplication>
+#include <QDir>
 
 using burninsys::Logger;
 
@@ -17,8 +16,9 @@ ServiceFacade::ServiceFacade(QObject *parent)
     connect(&m_equipmentData.provider(),&EquipmentDataProvider::thresholdUpdated,this,&ServiceFacade::onThresholdUpdated);
     connect(&m_equipmentData.provider(),&EquipmentDataProvider::motorCommand,this,&ServiceFacade::onMotorCommand);
     connect(&m_equipmentData.provider(),&EquipmentDataProvider::modeChanged,this,&ServiceFacade::onModeChanged);
-    connect(&m_ruleEngine, &RuleEngine::ruleTriggered, this, [](const RuleResult &result) {
+    connect(&m_ruleEngine, &RuleEngine::ruleTriggered, this, [this](const RuleResult &result) {
         Logger::instance().warn(QStringLiteral("Rule triggered: %1 - %2").arg(result.ruleName, result.message));
+        m_pendingRecord["anomaly"] = true;
     });
     connect(&m_testRunner,&TestRunner::tick,this,&ServiceFacade::remainingSecondsChanged);
     connect(&m_testRunner,&TestRunner::finished,this,&ServiceFacade::testVerdictChanged);
@@ -31,28 +31,17 @@ ServiceFacade::~ServiceFacade()
 
 void ServiceFacade::configure(const Config &config)
 {
-    m_ruleEngine.clear();
-    auto tempDevice = std::make_unique<MotorTemperatureDevice>();
-    tempDevice->setName("temperature");
-    tempDevice->setUnitId(config.endpoint.unitId);
-    tempDevice->setAddress(config.items[0].address);
-    tempDevice->setScale(config.items[0].scale);
-    m_pollingScheduler->addTask(std::move(tempDevice), config.items[0].intervalMs);
-    auto currentDevice = std::make_unique<CurrentDevice>();
-    currentDevice->setName("current");
-    currentDevice->setUnitId(config.endpoint.unitId);
-    currentDevice->setAddress(config.items[1].address);
-    currentDevice->setScale(config.items[1].scale);
-    m_pollingScheduler->addTask(std::move(currentDevice), config.items[1].intervalMs);
-    for(int i = 2; i < config.items.size(); ++i)
-    {
-        auto device = std::make_unique<SimpleRegisterDevice>();
-        device->setName(config.items[i].name);
-        device->setUnitId(config.endpoint.unitId);
-        device->setAddress(config.items[i].address);
-        device->setScale(config.items[i].scale);
-        m_pollingScheduler->addTask(std::move(device), config.items[i].intervalMs);
+    if (config.items.isEmpty()) {
+        Logger::instance().error("no items, abort configure");
+        return;
     }
+    rebuildRules(config);
+    m_pollingScheduler->rebuildTasks(config);
+}
+
+void ServiceFacade::rebuildRules(const Config &config)
+{
+    m_ruleEngine.clear();
     for(const RuleConfig &rule : config.rules)
     {
         if(rule.type == "threshold")
@@ -71,7 +60,7 @@ void ServiceFacade::configure(const Config &config)
 void ServiceFacade::start(const Config &config)
 {
     m_config = config;
-    m_configWatcher.watch("config.json");
+    m_configWatcher.watch(QCoreApplication::applicationDirPath() + "/config.json");
     m_workThread = new QThread(this);
     m_modbusSession = new ModbusSession;
     m_pollingScheduler = new PollingScheduler(m_modbusSession);
@@ -80,10 +69,13 @@ void ServiceFacade::start(const Config &config)
     m_sqliteRepository->moveToThread(m_workThread);
     m_pollingScheduler->moveToThread(m_workThread);
     m_modbusSession->moveToThread(m_workThread);
-    m_sqliteRepository->moveToThread(m_workThread);
     m_workThread->start();
-    QMetaObject::invokeMethod(m_sqliteRepository,[this,config](){
-        m_sqliteRepository->open(config.dataFilePath);
+    QString dbPath = config.dataFilePath;
+    if (QDir::isRelativePath(dbPath)) {
+        dbPath = QCoreApplication::applicationDirPath() + "/" + dbPath;
+    }
+    QMetaObject::invokeMethod(m_sqliteRepository,[this,config,dbPath](){
+        m_sqliteRepository->open(dbPath);
     });
     QMetaObject::invokeMethod(m_modbusSession,[this,config](){
         m_modbusSession->start(config.endpoint.host, config.endpoint.port);
@@ -123,6 +115,7 @@ EquipmentData *ServiceFacade::getEquipmentData()
 
 void ServiceFacade::onSampleReady(const TelemetrySample &sample)
 {
+
     if (sample.name == "temperature")       m_equipmentData.setTemperature(sample.value);
     else if (sample.name == "current")      m_equipmentData.setCurrent(sample.value);
     else if (sample.name == "rpm")          m_equipmentData.setRpm(sample.value);
@@ -132,16 +125,16 @@ void ServiceFacade::onSampleReady(const TelemetrySample &sample)
 
     m_pendingRecord["time"] = sample.timestampMs;
     m_pendingRecord[sample.name] = sample.value;
-    m_pendingRecord["anomaly"] = false;
+    if (sample.quality == "bad") {
+        m_pendingRecord["anomaly"] = true;
+    } else if (!m_pendingRecord.contains("anomaly")) {
+        m_pendingRecord["anomaly"] = false;
+    }
+
 
     //规则阈值判断
-    auto results = m_ruleEngine.evaluate(sample);
-    for (const auto &r : std::as_const(results)) {
-        if (r.triggered) {
-            m_pendingRecord["anomaly"] = true;
-            break;
-        }
-    }
+    if (sample.quality == "good") m_ruleEngine.evaluate(sample);
+
 
     // 6个指标都到齐了才推
     if (m_pendingRecord.size() >= 8) {  // time + 6指标 + anomaly = 8
@@ -179,10 +172,12 @@ void ServiceFacade::onThresholdUpdated(double motorTemp, double current, double 
 void ServiceFacade::onConfigUpdated(const Config &config)
 {
     m_config = config;
-    QMetaObject::invokeMethod(m_pollingScheduler,&PollingScheduler::stop);
-    QMetaObject::invokeMethod(m_pollingScheduler,&PollingScheduler::tasksClear);
-    configure(config);
-    QMetaObject::invokeMethod(m_pollingScheduler,&PollingScheduler::start);
+    rebuildRules(config);
+    QMetaObject::invokeMethod(m_pollingScheduler,&PollingScheduler::stop, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(m_pollingScheduler,[this,config](){
+        m_pollingScheduler->rebuildTasks(config);
+    },Qt::QueuedConnection);
+    QMetaObject::invokeMethod(m_pollingScheduler,&PollingScheduler::start, Qt::QueuedConnection);
 }
 
 void ServiceFacade::onMotorCommand()
@@ -217,6 +212,7 @@ void ServiceFacade::onModeChanged(int mode)
         m_modbusSession->write(req);
     },Qt::QueuedConnection);
 }
+
 
 void ServiceFacade::refreshUiState()
 {

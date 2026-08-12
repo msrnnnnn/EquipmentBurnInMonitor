@@ -15,7 +15,7 @@ public:
     void start(int intervalMs = 2000);
     void stop();
     void reset();
-    bool isHealthy() const { return m_wasHealthy; }
+    bool isHealthy() const;
 signals:
     void degraded();
     void recovered();

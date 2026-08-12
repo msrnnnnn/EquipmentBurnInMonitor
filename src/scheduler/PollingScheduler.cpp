@@ -1,4 +1,8 @@
 #include "PollingScheduler.h"
+#include "device/currentdevice.h"
+#include "device/modbusdevicedriver.h"
+#include "device/motortemperaturedevice.h"
+#include "device/simpleregisterdevice.h"
 #include "logging/logger.h"
 #include <QDateTime>
 
@@ -27,6 +31,28 @@ void PollingScheduler::stop()
 void PollingScheduler::tasksClear()
 {
     m_tasks.clear();
+}
+
+void PollingScheduler::rebuildTasks(const Config &config)
+{
+    if (config.items.isEmpty()) {
+        Logger::instance().error("no items, abort configure");
+        return;
+    }
+    tasksClear();
+
+    for(const PollItem &item : config.items)
+    {
+        std::unique_ptr<ModbusDeviceDriver> device;
+        if(item.name == "temperature")  device = std::make_unique<MotorTemperatureDevice>();
+        else if(item.name == "current") device = std::make_unique<CurrentDevice>();
+        else                            device = std::make_unique<SimpleRegisterDevice>();
+        device->setName(item.name);
+        device->setUnitId(config.endpoint.unitId);
+        device->setAddress(item.address);
+        device->setScale(item.scale);
+        addTask(std::move(device), item.intervalMs);
+    }
 }
 
 void PollingScheduler::tick()

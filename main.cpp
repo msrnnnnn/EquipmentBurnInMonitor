@@ -1,9 +1,7 @@
 #include "api/servicefacade.h"
 #include "mainwindow.h"
-#include "equipmentdata.h"
 #include "logging/logger.h"
 #include "config/config.h"
-#include "config/ConfigWatcher.h"
 
 #include <QApplication>
 #include <QDateTime>
@@ -18,12 +16,13 @@ int main(int argc, char *argv[])
 
     // 初始化日志
     Logger::instance().setLevel(Logger::Level::Info);
-    Logger::instance().enableFileSink("logs/burnin.log");
     Logger::instance().info("Application started");
 
     // 加载配置
     ConfigLoader loader;
-    Config config = loader.loadFromFile("config.json");
+    QString base = QCoreApplication::applicationDirPath();
+    Config config = loader.loadFromFile(base + "/config.json");
+    Logger::instance().enableFileSink(base + "/logs/burnin.log");
 
     // 回退检查
     if (config.endpoint.host.isEmpty() || config.items.isEmpty()) {

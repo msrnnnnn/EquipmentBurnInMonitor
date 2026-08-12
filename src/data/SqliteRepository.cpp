@@ -8,7 +8,8 @@ SqliteRepository::SqliteRepository(QObject *parent) {}
 void SqliteRepository::open(const QString &dbPath)
 {
     // 用独立连接名，不跟其他线程冲突
-    m_db = QSqlDatabase::addDatabase("QSQLITE", "repository");
+    QString connName = QStringLiteral("repository_%1").arg(reinterpret_cast<quintptr>(this));
+    m_db = QSqlDatabase::addDatabase("QSQLITE", connName);
     m_db.setDatabaseName(dbPath);
     m_dbPath = dbPath;
 

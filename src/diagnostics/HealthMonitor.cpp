@@ -29,9 +29,14 @@ void HealthMonitor::reset()
     m_wasHealthy = true;
 }
 
+bool HealthMonitor::isHealthy() const
+{
+    return m_wasHealthy;
+}
+
 void HealthMonitor::onSample(const TelemetrySample &sample)
 {
-    m_lastSample.restart();
+    if(sample.quality == "good") m_lastSample.restart();
 }
 
 void HealthMonitor::check()

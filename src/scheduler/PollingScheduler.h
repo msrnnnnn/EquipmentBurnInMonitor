@@ -1,6 +1,7 @@
 #ifndef POLLINGSCHEDULER_H
 #define POLLINGSCHEDULER_H
 
+#include "config/config.h"
 #include "device/DeviceDriver.h"
 #include "modbus/modbussession.h"
 #include <QObject>
@@ -24,6 +25,8 @@ public:
     void tasksClear();
 signals:
     void sampleReady(TelemetrySample sample);
+public slots:
+    void rebuildTasks(const Config &config);
 private slots:
     void tick();
 private:

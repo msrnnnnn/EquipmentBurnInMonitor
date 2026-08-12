@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QTimer>
+#include <atomic>
 #include "modbustcpclient.h"
 
 class ModbusSession : public QObject
@@ -23,7 +24,7 @@ private slots:
     void attemptReconnect();
 private:
     ModbusTcpClient m_client;
-    bool m_connected = false;
+    std::atomic<bool> m_connected = false;
     QTimer* m_reconnectTimer = nullptr;
     QString m_host;
     int m_port{502};

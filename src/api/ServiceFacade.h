@@ -44,6 +44,7 @@ public slots:
     void onMotorCommand();
     void onModeChanged(int mode);
 private:
+    void rebuildRules(const Config &config);
     void refreshUiState();
     RuleEngine m_ruleEngine;
     EquipmentData m_equipmentData;

@@ -1,7 +1,5 @@
 #include "config.h"
-
 #include "logging/logger.h"
-
 #include <QFile>
 #include <QJsonDocument>
 

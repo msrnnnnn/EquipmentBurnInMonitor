@@ -12,7 +12,7 @@ public:
     explicit RuleEngine(QObject *parent = nullptr);
 
     void addRule(std::unique_ptr<Rule> rule);
-    QList<RuleResult> evaluate(const TelemetrySample &sample);
+    void evaluate(const TelemetrySample &sample);
     void clear();
 signals:
     void ruleTriggered(const RuleResult &result);

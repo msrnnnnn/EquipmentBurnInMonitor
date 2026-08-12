@@ -66,7 +66,9 @@ bool ModbusSession::isConnected() const
 
 void ModbusSession::reconnect()
 {
-    if(m_connected || m_reconnectTimer && m_reconnectTimer->isActive()) return;
+    if(m_reconnectTimer && m_reconnectTimer->isActive()) return;
+    m_connected = false;
+    m_client.close();
     m_currentIntervalMs = 1000;
     m_reconnectTimer->start(m_currentIntervalMs);
     Logger::instance().warn(QStringLiteral("Reconnect triggered, first attempt in %1ms").arg(m_currentIntervalMs));
