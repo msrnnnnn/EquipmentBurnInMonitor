@@ -4,7 +4,7 @@
 > 踩过的 Bug 与排查过程、实测验证数据。写给人看——尤其写给 6 个月后的自己。
 >
 > 基线：`ca96461`（fix: 线程竞争/坏数据消费/路径依赖/anomaly标红）
-> 分支终点状态：S1~S8 全部落地，S9 未做（见"遗留"）。
+> 分支终点状态：**S1~S9 全部落地** + P0 演示链路修复 + P1 可靠性补齐（见第 8/8.5 节）。
 
 ---
 
@@ -15,7 +15,9 @@
 | `4452b94` | 模拟器 + 通信层异步化 | 作者本人提交（S3 + S7 主体） |
 | `f77279f` | S1/S2 SQLite 加固与降级 + S4 调度侧 + 文档入库 | 含一条重要修正：**提交消息经 `--amend` 改写过**（见 Bug 4） |
 | `ea04cd0` | S4 门面侧 + S5 属性体系 + S6 UI 绑定 + S8 存储线程 | 本次会话主产出 |
-| （待提交） | P0 演示链路修复（启停闭环 / rate 可触发 / 坏数据防闪 / Test Profile 接线 / timeoutMs 透传） | 见第 8 节 |
+| `99cf9a9` | P0 演示链路修复（启停闭环 / rate 可触发 / 坏数据防闪 / Test Profile 接线 / timeoutMs 透传） | 见第 8 节 |
+| `4682257` | README 对齐 + BRANCH_NOTES.md 初版 | 分支全记录 |
+| （待提交） | P1/S9：全量重启热更新 + 配置校验 + 帧聚合兜底 + TestRunner 三修 + 表格增量 + 曲线双轴 | 见第 8.5 节 |
 
 分三次的原因：**一次提交只讲一件事，diff 可独立审查、可单独回滚**。S1/S2 是用户先写的，单独入库不与异步化混在一起。
 
@@ -176,6 +178,35 @@ config `current_rate.rateLimit` 8.0 → **2.5**；模拟器电流步长 200 → 
 
 ---
 
+## 8.5 P1/S9 批次：热更新全量重启 + 可靠性补齐
+
+### S9 热更新全量重启（最后一块 S 拼图）
+- **configure() 变为"全量装配"**：规则重建 + 状态归零 + `m_itemNames` 记录 + **组件幂等重建**（stop 后指针全空，configure 里补建）+ moveToThread + 线程 start（幂等）
+- **start() 只做启动动作**：configure → 投递 open/session.start/scheduler.start → healthMonitor → TestRunner → uiTimer
+- **onConfigUpdated = `stop() + start(config)`**：旧组件/线程/信号全部回收再重建，不泄漏、不重复 connect
+- **stop() 顺带修了一个真死锁**（见 Bug 9）
+
+### B1 热更新配置校验
+`ConfigWatcher::onFileChanged`：`loadFromFile` 后校验 `items`/`host`，无效 → warn + **不 emit**（保持旧配置运行）+ 重新挂 watch（编辑器保存可能删重建文件）。
+实测：坏 JSON → `Config reload rejected (invalid config), keeping current config running`，进程存活、采集继续。
+
+### B5 表格增量刷新
+`onHistoryUpdated` 每帧只处理新增行：`datas.size() == rowCount`（50 行 cap 稳态）→ `removeRow(0)` + 补末尾 1 行；异常收缩才全量重建。每秒 350 次 item 分配 → 7 次。
+
+### B6 帧聚合按 schema 核对 + 超时兜底
+`onSampleReady` 改为：按 `m_itemNames`（config items 名单）逐项 `contains` 核对，攒齐才推；`QElapsedTimer` 1.5s 攒不齐强制推（缺项留空）。修复"数 key 个数"的两宗罪：丢采样时旧值残留串帧、items < 6 时表格永久冻结。
+
+### B7 TestRunner 三修
+- `recordSample(name, value, good)`：bad 不入峰值（解码失败值 0 会污染 qMax，误判 FAIL）
+- `abort()`：人为中止（关机/热更新）判 `aborted`，不算 pass/fail——中途停止判 PASS 是"把没测完当合格"的谎言
+- `remainingSeconds()`：`testDurationMinutes > 0` 时优先（分钟级），设置页 Duration 支持小数小时（≥1 → hours，<1 → 折算 minutes）
+- 首页 verdict 增加灰色 ABORTED 显示
+
+### A2 曲线双 Y 轴
+QCustomPlot 第二条曲线挂 `yAxis2`（右轴，电流 0~30A），温度左轴 20~100°C。面试话术：双 Y 轴量纲隔离。
+
+---
+
 ## 9. Bug 记录与排查（按时间线）
 
 ### Bug 1：`std::vector` 没有 `isEmpty()`（编译错误）
@@ -219,6 +250,21 @@ config `current_rate.rateLimit` 8.0 → **2.5**；模拟器电流步长 200 → 
 **处理**：两轮重写（异步化落地后、S 线 + P0 落地后），并纳入版本控制。
 **教训**：**文档是代码的投影，代码变了文档必须跟着变**；文档不进 git 等于没有文档。
 
+### Bug 9：S8 的 stop() 藏着死锁——quit 之后再 BlockingQueued（做 S9 时重读代码发现）
+**现象**：S9 改造前重读 stop()，发现 sqlite 析构的顺序是：
+```cpp
+m_dbThread->quit(); m_dbThread->wait();
+QMetaObject::invokeMethod(m_sqliteRepository, [..]{ delete ..; }, Qt::BlockingQueuedConnection);
+```
+**根因**：`quit()+wait()` 之后 db 线程的事件循环已经退出，`BlockingQueuedConnection` 的事件永远等不到处理 → **永久阻塞（死锁）**。之前的冒烟测试全是 `taskkill` 强杀进程，优雅关闭路径（析构 → stop）从没被走到，所以没暴露。
+**修法**：把删除投递到 `quit()` **之前**——delete 排在队列末尾，天然等所有排队的 save() 处理完，再 quit/wait。
+**教训**：**GUI 程序的"优雅退出路径"必须真实验证**，强杀进程测不出关闭逻辑的问题。S9 的全量重启恰好把这个路径变成了热路径（每次改配置都走一遍），等于免费测了 20 遍 stop()。
+
+### Bug 10：`applyTestProfile` 的小数时长被 `toInt()` 吃掉
+**现象**：P0 接线时设置页 Duration 用 `text().toInt()`——演示输入 0.02 得到 0，倒计时直接归零判 FAIL。
+**修法**：改 `toDouble()`，≥1 小时走 `testDurationHours`，<1 小时折算 `testDurationMinutes`（B7 的分钟级字段正好用上）。
+**教训**：**输入解析要按输入域的语义选类型**——用户能敲小数的框就别用 toInt。
+
 ---
 
 ## 10. 实测验证记录（数字全部来自本次运行）
@@ -232,22 +278,20 @@ config `current_rate.rateLimit` 8.0 → **2.5**；模拟器电流步长 200 → 
 | S4 | 温度种子 80 + 游走 70~95 | `Anomaly sampling ON/OFF` 边沿切换日志 ✓ |
 | P0-1 闭环 | 外部 Python 主站写线圈 0 → 读寄存器 12 | 写 ON→1、写 OFF→0，归一化正确；被测程序 ON 期间采到 3 条 value=1 落库 |
 | P0-2 | 日志 grep `current_rate` | `Rule triggered: current_rate - current 6.66 >= 2.5` ✓（原永不触发） |
+| **S9 全量重启** | 运行中改 config（power_high 8.0→9.5） | `full reload (stop -> start)` + 再次 `connect success`，**无死锁无崩溃** |
+| **B1 拒绝坏配置** | 写坏 JSON 到 config.json | `Config reload rejected ... keeping current config running`，进程存活、采集继续 |
+| S9 恢复 | 恢复 config 后再跑 | 采样连续（约 20s × 7 指标 = 140 行落库） |
 
 ---
 
 ## 11. 遗留事项（未做，需决策）
 
-1. **S9 热更新全量重启**：`stop → configure → start` + start() 幂等化——`configure()` 已线程安全，只剩全量重启这层壳
-2. 热更新配置校验（ConfigWatcher 加载失败应拒绝新配置、保持旧配置）
-3. 表格增量刷新（当前每秒全量重建 350 个 QTableWidgetItem）
-4. `pendingRecord` 按 items 名单核对 + 超时兜底（当前按 key 个数凑齐，丢采样会串帧）
-5. TestRunner 三修：bad 不入峰值 / 中途停止判 aborted / duration 支持分钟级
-6. 曲线双 Y 轴（当前单温度曲线、Y 轴 20~100 硬编码）
-7. InputRegister 链路补全或删死分支（枚举/配置/模拟器有 04，client 只有 03）
-8. 阈值写"成功才回写快照"（当前写前即更，回调在工作线程有跨线程问题）
-9. `endpoint.timeoutMs` 已透传，但 connect 超时与响应超时的分层验收实验未做（拔网线时间线）
-10. 规则触发自动停机联动
-11. `a.h/a.cpp` 异步草稿的去留（已排除出构建，占磁盘）
+1. **InputRegister 链路补全或删死分支**：枚举/配置/模拟器都有 04 功能码，client 的 `performRead` 只有 03（断头链）
+2. 阈值写"成功才回写快照"（当前写前即更，回调在工作线程有跨线程问题；可试 `QMetaObject::invokeMethod(this, ..., QueuedConnection)` 回主线程更新）
+3. 规则触发自动停机联动（超阈值自动写停机线圈）
+4. 自动化测试最小集（Qt Test 框架起一个冒烟用例）
+5. `endpoint.timeoutMs` 已透传，但 connect 超时与响应超时的分层验收实验未做（拔网线时间线）
+6. `a.h/a.cpp` 异步草稿的去留（已排除出构建，占磁盘）
 
 ---
 

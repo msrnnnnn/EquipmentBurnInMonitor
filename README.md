@@ -205,36 +205,30 @@ cmake --build build
 - [x] **UI 属性绑定**（HomePage/SettingsPage，含规则状态卡 / 阈值快照 / 连接状态，S6）
 - [x] 工业大屏 UI（卡片 / 曲线 / 表格 / 倒计时 / PASS-FAIL）
 - [x] 健康监测 + 通信层断连感知 + 指数退避自动重连
-- [x] 老化测试判定引擎（TestRunner），规程可在设置页实时修改
-- [x] 配置加载与热更新（规则 + 采集任务）
+- [x] 老化测试判定引擎（TestRunner：bad 不入峰值 / 人为中止判 aborted / 分钟级时长）
+- [x] **热更新全量重启（S9）**：改配置 → `stop → start` 全量生效；ConfigWatcher 校验新配置，**无效配置拒绝切换、保持旧配置运行**
+- [x] 帧聚合超时兜底（按 items 名单核对 + 1.5s 强制推送，丢采样不再串帧）
+- [x] 历史表格增量刷新（每秒 7 个 item，不再全量重建 350 个）
+- [x] 曲线双 Y 轴（温度左轴 + 电流右轴）
+- [x] 配置加载与热更新（规则 + 采集任务 + 连接 + TestRunner 全量重建）
 - [x] Logger 单例 + Sink、MetricsCollector、DataCache
 
 ### 路线图（按演示与面试价值排序）
 
-**P1 —— 可靠性补齐**
-
-1. 热更新配置校验：ConfigWatcher 加载失败时拒绝新配置、保持旧配置（当前会静默杀死采集）
-2. `start()/stop()` 幂等化 + 热更新走 `stop → configure → start` 全量重启（S9，当前只重建规则与任务）
-3. 表格增量刷新（当前每秒全量重建 350 个 `QTableWidgetItem`）
-4. `pendingRecord` 按 items 名单核对 + 超时兜底（当前按 key 个数凑齐，丢采样会串帧）
-5. TestRunner 三修：bad 数据不入峰值、中途停止判 `aborted`、duration 支持分钟级
-6. 规则触发自动停机联动
-
 **P2 —— 架构与表现层**
 
-7. 曲线双 Y 轴（当前只画温度一条，Y 轴硬编码 20~100）
-8. InputRegister 链路补全或删除死分支（枚举/配置/模拟器都有 04 功能码，client 只有 03）
-9. 阈值写回调成功后回写快照（当前"写前即更"，回调在工作线程不宜跨线程改主线程成员）
-10. 自动化测试最小集（当前编译通过 + 手动演示验证）
+1. InputRegister 链路补全或删除死分支（枚举/配置/模拟器都有 04 功能码，client 只有 03）
+2. 阈值写回调成功后回写快照（当前"写前即更"，回调在工作线程不宜跨线程改主线程成员）
+3. 规则触发自动停机联动
+4. 自动化测试最小集（当前编译通过 + 手动演示验证）
 
-> 施工计划与文档出处见 `DEVELOPMENT_PLAN.md`（S1~S9，当前仅 S9 未完成）；源码级缺陷与面试追问防线见 `INTERVIEW_READINESS_REPORT.md`；本分支的设计决策、取舍与 Bug 排查全记录见 `BRANCH_NOTES.md`。
+> 施工计划与文档出处见 `DEVELOPMENT_PLAN.md`（S1~S9 已全部完成）；源码级缺陷与面试追问防线见 `INTERVIEW_READINESS_REPORT.md`；本分支的设计决策、取舍与 Bug 排查全记录见 `BRANCH_NOTES.md`。
 
 ### 已知限制
 
-- 曲线只画温度一条，Y 轴硬编码 20~100°C
 - 规则触发仅标红 + 日志，无自动停机联动
 - `DiagnosticsReporter` 已实现但未实例化；`DataCache` / `MetricsCollector` 当前只写不读
-- 热更新仅重建规则与采集任务，未走 `stop → configure → start` 全量重启
+- 阈值快照是"写前即更"，写失败仅记日志不回滚快照
 - 无自动化测试（编译通过 + 手动演示验证）
 - 视频页为占位骨架（视频模块不在路线图内）
 - `src/modbus/a.h/a.cpp` 是异步化的早期接口草稿，与现行 `modbustcpclient` 定义同名类，已刻意排除出构建，仅保留在磁盘上供对照
