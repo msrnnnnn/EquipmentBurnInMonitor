@@ -126,13 +126,26 @@ void SettingsPage::bindSensor(EquipmentData *sensor)
     if(!sensor) return;
 
     connect(m_saveBtn, &QPushButton::clicked, this, [this, sensor]() {
-        sensor->provider().sendThreshold(
-            m_tempThreshold->text().toDouble(),
-            m_currentThreshold->text().toDouble(),
-            m_rpmThreshold->text().toDouble(),
-            m_vibrationThreshold->text().toDouble(),
-            m_voltageThreshold->text().toDouble(),
-            m_powerThreshold->text().toDouble());
+        // B8 修复：输入校验 + 钳位。
+        // 旧代码空输入 toDouble()=0 → 把温度阈值写成 0 → isUpper 规则恒真 → 告警风暴；
+        // scale 无防御也会除零。现在：解析失败/<=0 拒绝发送并提示。
+        bool ok = true;
+        auto readVal = [&ok](QLineEdit *edit) {
+            const double v = edit->text().trimmed().toDouble(&ok);
+            if (!ok) return 0.0;
+            return qBound(1.0, v, 100000.0);   // 阈值至少 >0，防止把规则写成恒真
+        };
+        const double temp = readVal(m_tempThreshold);
+        const double curr = readVal(m_currentThreshold);
+        const double rpm  = readVal(m_rpmThreshold);
+        const double vib  = readVal(m_vibrationThreshold);
+        const double volt = readVal(m_voltageThreshold);
+        const double powr = readVal(m_powerThreshold);
+        if (!ok) {
+            m_writeMessageLabel->setText("Invalid threshold input, not sent");
+            return;
+        }
+        sensor->provider().sendThreshold(temp, curr, rpm, vib, volt, powr);
     });
 
     connect(m_connectBtn, &QPushButton::clicked, this, [this, sensor]() {
