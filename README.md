@@ -1,5 +1,7 @@
 # EquipmentBurnInMonitor 设备老化测试监控系统
 
+![CI](https://github.com/msrnnnnn/EquipmentBurnInMonitor/actions/workflows/ci.yml/badge.svg)
+
 面向工业设备老化测试（Burn-In Test）场景的 Qt 上位机监控软件。通过 Modbus TCP 实时采集电机运行遥测（温度 / 电流 / 转速 / 振动 / 电压 / 功率 共 6 路），完成规则判定、SQLite 历史存储、工业大屏展示与设备启停控制，并可自动执行 72 小时老化测试并给出 PASS/FAIL 判定。
 
 > 本项目由作者独立开发，同时作为 Qt 客户端开发方向的求职作品。
