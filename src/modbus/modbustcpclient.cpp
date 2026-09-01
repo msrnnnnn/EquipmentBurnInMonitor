@@ -73,18 +73,45 @@ ModbusResponse ModbusIoWorker::performRead(const ModbusReadRequest &req)
     if (m_ctx == nullptr)
         return ModbusResponse{false, {}, "Not connected", true};
 
-    QVector<uint16_t> buffer(req.quantity);
     modbus_set_slave(m_ctx, req.unitId);
-    const int rc = modbus_read_registers(m_ctx, req.startAddress, req.quantity, buffer.data());
+    // B10：按寄存器类型分发 4 个功能码 —— 01 读线圈 / 02 读离散输入 /
+    // 03 读保持寄存器 / 04 读输入寄存器。此前只有 03，InputRegister 是"假支持"。
+    // 注意 bit 系列（01/02）的 dest 是 uint8_t*（每 bit 一个字节），
+    // 寄存器系列（03/04）是 uint16_t*，必须分开缓冲区。
+    QVector<uint16_t> regs(req.quantity);
+    QVector<uint8_t> bits(req.quantity);
+    int rc = -1;
+    QByteArray payload;
+    switch (req.type) {
+    case RegisterType::Coil:
+        rc = modbus_read_bits(m_ctx, req.startAddress, req.quantity, bits.data());
+        payload = QByteArray(reinterpret_cast<const char *>(bits.data()), qMax(0, rc));
+        break;
+    case RegisterType::DiscreteInput:
+        rc = modbus_read_input_bits(m_ctx, req.startAddress, req.quantity, bits.data());
+        payload = QByteArray(reinterpret_cast<const char *>(bits.data()), qMax(0, rc));
+        break;
+    case RegisterType::InputRegister:
+        rc = modbus_read_input_registers(m_ctx, req.startAddress, req.quantity, regs.data());
+        payload = QByteArray(reinterpret_cast<const char *>(regs.data()),
+                             rc * static_cast<int>(sizeof(uint16_t)));
+        break;
+    case RegisterType::HoldingRegister:
+    default:
+        rc = modbus_read_registers(m_ctx, req.startAddress, req.quantity, regs.data());
+        payload = QByteArray(reinterpret_cast<const char *>(regs.data()),
+                             rc * static_cast<int>(sizeof(uint16_t)));
+        break;
+    }
     const int savedErr = errno;
 
     ModbusResponse rsp;
     if (rc != -1) {
         rsp.success = true;
-        rsp.payload = QByteArray(reinterpret_cast<const char *>(buffer.data()),
-                                 rc * static_cast<int>(sizeof(uint16_t)));
+        rsp.payload = payload;
     } else {
-        Logger::instance().info(QStringLiteral("modbus read registers failed: %1")
+        Logger::instance().info(QStringLiteral("modbus read failed (fn=%1): %2")
+                                    .arg(static_cast<int>(req.type))
                                     .arg(modbus_strerror(savedErr)));
         rsp.success = false;
         rsp.error = modbus_strerror(savedErr);

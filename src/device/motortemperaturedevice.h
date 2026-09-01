@@ -18,7 +18,7 @@ public:
     ModbusReadRequest buildReadRequest() const override
     {
         ModbusReadRequest req;
-        req.type = RegisterType::HoldingRegister;
+        req.type = getRegisterType();   // B10：不再写死 holding
         req.quantity = 2;
         req.startAddress = getAddress();
         req.unitId = getUnitId();

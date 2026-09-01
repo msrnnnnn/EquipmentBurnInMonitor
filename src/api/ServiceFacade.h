@@ -129,7 +129,8 @@ private:
     void rebuildRules(const Config &config);
     void refreshUiState();
     void updateAnomalyMode(const TelemetrySample &sample);   // S4：异常判定 → 高频采样
-    void setThresholdSnapshot(double temp, double curr, double rpm, double vib); // S5：阈值快照 + 消息
+    void setThresholdSnapshot(double temp, double curr, double rpm, double vib, double volt, double power); // 阈值快照 + 消息
+    void writeMotorStop();   // 自动停机联动：写停机线圈（不翻转 UI 状态，由调用方管理）
 
     RuleEngine m_ruleEngine;
     EquipmentData m_equipmentData;
@@ -149,6 +150,8 @@ private:
     // B6：帧聚合按 schema 核对 —— 记 items 名单，攒齐才推；1.5s 攒不齐强制推
     QStringList m_itemNames;
     QElapsedTimer m_recordTimer;
+    // 自动停机联动：autoStop=true 的规则名集合（configure 时收集）
+    QStringList m_autoStopRules;
     Config m_config;
     ConfigWatcher m_configWatcher;
     TestRunner m_testRunner;

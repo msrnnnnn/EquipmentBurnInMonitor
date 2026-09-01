@@ -53,6 +53,7 @@ struct RuleConfig
     double windowSeconds{10.0}; // 滑动窗口（变化率规则用）
     double rateLimit{0.0};   // 变化率上限（变化率规则用）
     bool isUpper{true};      // 判断阈值之上还是之下
+    bool autoStop{false};    // 命中后自动写停机线圈（安全联动，如温度/电流超限）
 };
 
 struct ThresholdRegisterConfig

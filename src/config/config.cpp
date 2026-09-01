@@ -118,6 +118,7 @@ QVector<RuleConfig> ConfigLoader::parseRules(const QJsonArray &arr) const
         rc.windowSeconds = obj.value("windowSeconds").toDouble(10.0);
         rc.rateLimit     = obj.value("rateLimit").toDouble(0.0);
         rc.isUpper       = obj.value("isUpper").toBool(true);
+        rc.autoStop      = obj.value("autoStop").toBool(false);
         rules.push_back(rc);
     }
     return rules;

@@ -13,8 +13,9 @@ RuleResult RateChangeRule::evaluate(const TelemetrySample &sample) const
 {
     if(m_metric == sample.name)
     {
-        if (m_lastTimestamp == 0) {
+        if (!m_hasBaseline) {
             // 第一次收到，没有上次值可以比较，先记录，下次再算
+            m_hasBaseline = true;
             m_lastTimestamp = sample.timestampMs;
             m_lastValue = sample.value;
             return {};

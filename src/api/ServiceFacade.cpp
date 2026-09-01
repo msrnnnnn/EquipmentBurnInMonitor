@@ -7,6 +7,8 @@
 #include <QMetaObject>
 #include <QTime>
 #include <algorithm>
+#include <array>
+#include <memory>
 
 using burninsys::Logger;
 
@@ -42,6 +44,17 @@ ServiceFacade::ServiceFacade(QObject *parent)
         emit lastRuleNameChanged();
         emit triggeredRuleCountChanged();
         emit recentRuleEventsChanged();
+
+        // 自动停机联动：命中 autoStop 规则且电机在运行 → 写停机线圈 + 状态翻转。
+        // m_isRunning 守卫避免规则每秒触发时每秒都发停机写（只停一次）。
+        if (m_isRunning && m_autoStopRules.contains(result.ruleName)) {
+            Logger::instance().warn(QStringLiteral("Auto-stop triggered by rule: %1").arg(result.ruleName));
+            m_isRunning = false;
+            m_startStopMessage = QStringLiteral("Auto-stopped by %1").arg(result.ruleName);
+            emit isRunningChanged();
+            emit startStopMessageChanged();
+            writeMotorStop();
+        }
     });
     // TestRunner 的信号带参，转发时剥掉参数 —— 属性体系统一无参 NOTIFY
     connect(&m_testRunner,&TestRunner::tick,this,[this](int){ emit remainingSecondsChanged(); });
@@ -81,6 +94,12 @@ void ServiceFacade::configure(const Config &config)
     m_itemNames.clear();
     for (const auto &item : config.items)
         m_itemNames.append(item.name);
+
+    // 自动停机联动：收集 autoStop 规则名
+    m_autoStopRules.clear();
+    for (const auto &rule : config.rules)
+        if (rule.autoStop)
+            m_autoStopRules.append(rule.name);
 
     // ── 组件装配（S9：stop 后指针全空，这里幂等重建；首次 start 也走这里）──
     if (m_workThread == nullptr) m_workThread = new QThread(this);
@@ -268,30 +287,49 @@ void ServiceFacade::onSampleReady(const TelemetrySample &sample)
 
 void ServiceFacade::onThresholdUpdated(double motorTemp, double current, double rpm, double vibration, double voltage, double power)
 {
-    // S5：快照"写前即更"（UI 立即反馈）。写结果由回调记录日志——
-    // 注意回调跑在工作线程，不能跨线程改这些主线程成员，所以不做"写成功才更新"。
-    setThresholdSnapshot(motorTemp, current, rpm, vibration);
-
-    double values[] = {motorTemp, current, rpm, vibration, voltage, power};
+    // P2 遗留 2 号：阈值快照改为"全部写成功才回写"。
+    // 6 个写回调都跑在【工作线程】且串行执行（client 单飞），共享数组统计结果无竞争；
+    // 全部收齐后 invokeMethod 回主线程更新快照 —— 跨线程改主线程成员必须走 QueuedConnection。
+    const auto vals = std::array<double, 6>{motorTemp, current, rpm, vibration, voltage, power};
     auto& regs = m_config.thresholdRegisters;
+    const int total = qMin(static_cast<int>(regs.size()), 6);
+    if (total <= 0)
+        return;
 
-    for(int i = 0; i < regs.size() && i < 6; ++i)
+    auto results = std::make_shared<QVector<bool>>(total, false);
+    auto done = std::make_shared<int>(0);
+
+    for (int i = 0; i < total; ++i)
     {
         ModbusWriteRequest req;
         req.startAddress = regs[i].address;
-        req.values.append(static_cast<quint16>(values[i] / regs[i].scale));
+        req.values.append(static_cast<quint16>(vals[i] / regs[i].scale));
         req.type = RegisterType::HoldingRegister;
         req.unitId = m_config.endpoint.unitId;
-        // 回调式写入：写失败会留下日志，原来这种失败是静默的。
-        // addr 按值捕获：回调在工作线程执行，不能跨线程访问 m_config。
+        // 全部按值捕获：回调在工作线程执行，不能跨线程碰 m_config
         const quint16 addr = regs[i].address;
-        QMetaObject::invokeMethod(m_modbusSession,[this,req,addr](){
-            m_modbusSession->write(req, [addr](ModbusResponse rsp){
+        const int idx = i;
+        QMetaObject::invokeMethod(m_modbusSession,[this, req, addr, idx, vals, results, done, total](){
+            m_modbusSession->write(req, [this, addr, idx, vals, results, done, total](ModbusResponse rsp){
                 if(!rsp.success)
                     Logger::instance().warn(QStringLiteral("Threshold write failed (addr=%1): %2")
                                                 .arg(addr).arg(rsp.error));
+                (*results)[idx] = rsp.success;
+                if (++(*done) == total) {
+                    // 全部收齐：把结论送回主线程（这里还在工作线程）
+                    const bool allOk = std::all_of(results->cbegin(), results->cend(),
+                                                   [](bool b) { return b; });
+                    QMetaObject::invokeMethod(this, [this, allOk, vals]() {
+                        if (allOk) {
+                            setThresholdSnapshot(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]);
+                        } else {
+                            m_thresholdWriteMessage = "Threshold write failed, snapshot kept";
+                            emit thresholdWriteMessageChanged();
+                        }
+                    }, Qt::QueuedConnection);
+                }
             });
-        },Qt::QueuedConnection);
+        }, Qt::QueuedConnection);
     }
 }
 
@@ -347,6 +385,24 @@ void ServiceFacade::onModeChanged(int mode)
                 Logger::instance().warn(QStringLiteral("Mode command write failed: %1").arg(rsp.error));
         });
     },Qt::QueuedConnection);
+}
+
+// ── 自动停机联动：写停机线圈 ──
+// 只发写请求，不翻转 m_isRunning —— 状态翻转由调用方（ruleTriggered lambda）负责，
+// 保证"UI 按钮状态"与"自动停机"只有一条路径改它。
+void ServiceFacade::writeMotorStop()
+{
+    ModbusWriteRequest req;
+    req.type = RegisterType::Coil;
+    req.unitId = m_config.endpoint.unitId;
+    req.startAddress = m_config.motorCommand.address;
+    req.values.append(m_config.motorCommand.stopValue);
+    QMetaObject::invokeMethod(m_modbusSession, [this, req]() {
+        m_modbusSession->write(req, [](ModbusResponse rsp) {
+            if (!rsp.success)
+                Logger::instance().warn(QStringLiteral("Auto-stop write failed: %1").arg(rsp.error));
+        });
+    }, Qt::QueuedConnection);
 }
 
 // ── P0-4：设置页 Connect —— 换端点重启会话 ──
@@ -452,12 +508,14 @@ void ServiceFacade::updateAnomalyMode(const TelemetrySample &sample)
 }
 
 // ── S5：阈值快照（36节）──
-void ServiceFacade::setThresholdSnapshot(double temp, double curr, double rpm, double vib)
+void ServiceFacade::setThresholdSnapshot(double temp, double curr, double rpm, double vib, double volt, double power)
 {
-    Q_UNUSED(curr);   // current 阈值快照未纳入属性（按文档只做 4 个）
+    Q_UNUSED(curr);
+    Q_UNUSED(volt);   // current/voltage 未纳入快照属性（按文档只做 4 个）
     m_temperatureThreshold = temp;
     m_rpmThreshold = rpm;
     m_vibrationThreshold = vib;
+    m_powerThreshold = power;   // 修复 S5 缺口：此前漏设 power，设置页 Power 快照永远 "-"
     m_thresholdWriteMessage = QStringLiteral("Threshold registers updated at %1")
         .arg(QTime::currentTime().toString("HH:mm:ss"));
     emit thresholdsChanged();

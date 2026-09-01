@@ -30,8 +30,8 @@
         { "name": "runStatus",   "address": 12, "scale": 1.0 }
     ],
     "rules": [
-        { "name": "temp_high",    "type": "threshold", "metric": "temperature", "threshold": 85.0 },
-        { "name": "current_high", "type": "threshold", "metric": "current",     "threshold": 20.0 },
+        { "name": "temp_high",    "type": "threshold", "metric": "temperature", "threshold": 85.0, "autoStop": true },
+        { "name": "current_high", "type": "threshold", "metric": "current",     "threshold": 20.0, "autoStop": true },
         { "name": "rpm_low",      "type": "threshold", "metric": "rpm",         "threshold": 300.0 ,"isUpper": false},
         { "name": "vib_high",     "type": "threshold", "metric": "vibration",   "threshold": 4.5 },
         { "name": "voltage_high", "type": "threshold", "metric": "voltage",     "threshold": 420.0 },

@@ -52,6 +52,9 @@ void PollingScheduler::rebuildTasks(const Config &config)
         device->setUnitId(config.endpoint.unitId);
         device->setAddress(item.address);
         device->setScale(item.scale);
+        // B10：config items[].registerType（coil/discrete/input/holding）透传到驱动，
+        // 让 01/02/04 功能码链路真正可用（此前枚举有、配置有、模拟器有，client 只有 03）
+        device->setRegisterType(registerTypeFromString(item.registerType));
         addTask(std::move(device), item.intervalMs);
     }
 }
