@@ -131,3 +131,11 @@ void MainWindow::setSensor(EquipmentData *sensor)
     if (m_home && sensor) m_home->bindSensor(sensor);
     if (m_setting && sensor) m_setting->bindSensor(sensor);
 }
+
+// S6：属性注入。ServiceFacade 是主线程对象，直接传指针即可；
+// 页面内部用信号槽订阅 NOTIFY，避免任何轮询。
+void MainWindow::setServiceFacade(ServiceFacade *facade)
+{
+    if (m_home && facade) m_home->bindServiceFacade(facade);
+    if (m_setting && facade) m_setting->bindServiceFacade(facade);
+}

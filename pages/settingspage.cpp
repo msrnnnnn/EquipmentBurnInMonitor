@@ -5,6 +5,8 @@
 #include <QGroupBox>
 #include <QLineEdit>
 #include <QComboBox>
+#include <QLabel>
+#include "api/servicefacade.h"
 
 SettingsPage::SettingsPage(QWidget *parent)
     : QWidget{parent}
@@ -23,8 +25,16 @@ SettingsPage::SettingsPage(QWidget *parent)
 
     m_connectBtn = new QPushButton("Connect");
 
+    // S6：连接/调度状态标签 —— 由 ServiceFacade 属性驱动，这里是静态初值
+    m_connStatusLabel = new QLabel("● 未连接");
+    m_connStatusLabel->setStyleSheet("color: #ef4444; font-weight: bold;");
+    m_schedulerLabel = new QLabel("停止");
+    m_schedulerLabel->setStyleSheet("color: #94a3b8;");
+
     connLayout->addRow("Host:", m_hostInput);
     connLayout->addRow("Port:", m_portInput);
+    connLayout->addRow("Status:", m_connStatusLabel);
+    connLayout->addRow("Scheduler:", m_schedulerLabel);
     connLayout->addRow("", m_connectBtn);
 
     // ── 报警阈值 ──
@@ -47,6 +57,32 @@ SettingsPage::SettingsPage(QWidget *parent)
 
     m_saveBtn = new QPushButton("Save Thresholds");
     thresholdLayout->addRow("", m_saveBtn);
+
+    // ── S6：当前生效阈值快照（36节）—— 保存后由 ServiceFacade 属性回显 ──
+    auto *snapshotGroup = new QGroupBox("Active Thresholds");
+    auto *snapshotLayout = new QFormLayout(snapshotGroup);
+    m_tempLabel = new QLabel("-");
+    m_vibrationLabel = new QLabel("-");
+    m_powerLabel = new QLabel("-");
+    m_rpmLabel = new QLabel("-");
+    snapshotLayout->addRow("Temp (°C):", m_tempLabel);
+    snapshotLayout->addRow("Vibration (mm/s):", m_vibrationLabel);
+    snapshotLayout->addRow("Power (kW):", m_powerLabel);
+    snapshotLayout->addRow("RPM:", m_rpmLabel);
+    m_writeMessageLabel = new QLabel("No threshold write yet");
+    m_writeMessageLabel->setStyleSheet("color: #94a3b8; font-size: 12px;");
+    m_writeMessageLabel->setWordWrap(true);
+    snapshotLayout->addRow("", m_writeMessageLabel);
+    mainLayout->addWidget(snapshotGroup);
+
+    // ── S6：最近规则消息（33节）──
+    auto *ruleGroup = new QGroupBox("Rule Activity");
+    auto *ruleLayout = new QFormLayout(ruleGroup);
+    m_ruleLabel = new QLabel("none");
+    m_ruleLabel->setStyleSheet("color: #94a3b8;");
+    m_ruleLabel->setWordWrap(true);
+    ruleLayout->addRow("Last rule:", m_ruleLabel);
+    mainLayout->addWidget(ruleGroup);
 
     // ── 测试档案 ──
     auto *profileGroup = new QGroupBox("Test Profile");
@@ -99,4 +135,47 @@ void SettingsPage::bindSensor(EquipmentData *sensor)
         int mode = m_modeCombo->itemData(index).toInt();
         sensor->provider().modeChanged(mode);
     });
+}
+
+// ── S6：属性订阅（与 HomePage 同款模式：NOTIFY → 读 getter → 渲染）──
+void SettingsPage::bindServiceFacade(ServiceFacade *facade)
+{
+    if (!facade) return;
+
+    connect(facade, &ServiceFacade::modbusConnectedChanged, this, [this, facade]() {
+        const bool ok = facade->modbusConnected();
+        m_connStatusLabel->setText(ok ? "● 已连接" : "● 未连接");
+        m_connStatusLabel->setStyleSheet(ok ? "color: #22c55e; font-weight: bold;"
+                                            : "color: #ef4444; font-weight: bold;");
+    });
+    connect(facade, &ServiceFacade::schedulerActiveChanged, this, [this, facade]() {
+        m_schedulerLabel->setText(facade->schedulerActive() ? "运行中" : "停止");
+        m_schedulerLabel->setStyleSheet(facade->schedulerActive() ? "color: #22c55e;"
+                                                                  : "color: #94a3b8;");
+    });
+    connect(facade, &ServiceFacade::lastRuleMessageChanged, this, [this, facade]() {
+        m_ruleLabel->setText(facade->lastRuleMessage());
+    });
+    connect(facade, &ServiceFacade::thresholdsChanged, this, [this, facade]() {
+        m_tempLabel->setText(QString::number(facade->temperatureThreshold(), 'f', 1));
+        m_vibrationLabel->setText(QString::number(facade->vibrationThreshold(), 'f', 1));
+        m_powerLabel->setText(QString::number(facade->powerThreshold(), 'f', 1));
+        m_rpmLabel->setText(QString::number(facade->rpmThreshold(), 'f', 0));
+    });
+    connect(facade, &ServiceFacade::thresholdWriteMessageChanged, this, [this, facade]() {
+        m_writeMessageLabel->setText(facade->thresholdWriteMessage());
+    });
+
+    // 初始补帧（绑定晚于 start()，start 期间的信号已错过）
+    const bool ok = facade->modbusConnected();
+    m_connStatusLabel->setText(ok ? "● 已连接" : "● 未连接");
+    m_connStatusLabel->setStyleSheet(ok ? "color: #22c55e; font-weight: bold;"
+                                        : "color: #ef4444; font-weight: bold;");
+    m_schedulerLabel->setText(facade->schedulerActive() ? "运行中" : "停止");
+    m_ruleLabel->setText(facade->lastRuleMessage());
+    m_tempLabel->setText(QString::number(facade->temperatureThreshold(), 'f', 1));
+    m_vibrationLabel->setText(QString::number(facade->vibrationThreshold(), 'f', 1));
+    m_powerLabel->setText(QString::number(facade->powerThreshold(), 'f', 1));
+    m_rpmLabel->setText(QString::number(facade->rpmThreshold(), 'f', 0));
+    m_writeMessageLabel->setText(facade->thresholdWriteMessage());
 }

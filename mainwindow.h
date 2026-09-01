@@ -9,6 +9,7 @@
 
 class QListWidget;
 class QStackedWidget;
+class ServiceFacade;
 
 class MainWindow : public QMainWindow
 {
@@ -18,6 +19,8 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     void setSensor(EquipmentData *sensor);
+    // S6：与 setSensor 同款传递者模式 —— MainWindow 只负责转交，不插手数据流
+    void setServiceFacade(ServiceFacade *facade);
     HomePage* homePage() { return m_home; }
 private:
     void setupUI();

@@ -8,6 +8,7 @@
 #include "qcustomplot.h"
 
 class QLabel;
+class ServiceFacade;
 
 class HomePage : public QWidget
 {
@@ -15,14 +16,17 @@ class HomePage : public QWidget
 public:
     explicit HomePage(QWidget *parent = nullptr);
     void bindSensor(EquipmentData *sensor);
-    void updateStatus(bool healthy);
-    void updateCount(int count);
-    void updateCountdown(int seconds);
-    void updateVerdict(const QString &verdict);
-public slots:
-    void updateMotorState(bool running);
+    // S6：订阅 ServiceFacade 的无参 NOTIFY 信号，收到后用 getter 读值渲染
+    void bindServiceFacade(ServiceFacade *facade);
 private:
     void onHistoryUpdated(const QVariantList &datas);
+    // ── S6 渲染辅助：信号 lambda 与"初始补帧"共用，避免同一逻辑写两遍 ──
+    void applyServiceState(const QString &state);
+    void applyCount(int count);
+    void applyCountdown(int seconds);
+    void applyVerdict(const QString &verdict);
+    void applyMotorState(bool running);
+    void applyRuleState(const QString &ruleName, int triggeredCount);
 
     QLabel *m_tempLabel = nullptr;
     QLabel *m_currentLabel = nullptr;
@@ -38,6 +42,7 @@ private:
     QLabel *m_countLabel = nullptr;
     QLabel *m_countdownLabel = nullptr;
     QLabel *m_verdictLabel = nullptr;
+    QLabel *m_ruleLabel = nullptr;      // S6：规则状态标签（41节简化版）
 };
 
 #endif // HOMEPAGE_H

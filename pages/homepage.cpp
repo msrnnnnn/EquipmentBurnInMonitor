@@ -1,4 +1,5 @@
 #include "homepage.h"
+#include "api/servicefacade.h"
 #include "logging/logger.h"
 #include <QDateTime>
 #include <QFrame>
@@ -36,6 +37,11 @@ HomePage::HomePage(QWidget *parent)
     statusBar->addWidget(m_countdownLabel);
     statusBar->addSpacing(16);
     statusBar->addWidget(m_verdictLabel);
+    // S6：规则状态卡（41节简化版）—— 未触发灰色，触发后变红 ×N
+    m_ruleLabel = new QLabel("规则: 等待触发");
+    m_ruleLabel->setStyleSheet("color: #94a3b8; font-size: 13px; font-weight: bold;");
+    statusBar->addSpacing(16);
+    statusBar->addWidget(m_ruleLabel);
     root->addLayout(statusBar);
 
     // ── 六个指标卡片 ──
@@ -240,23 +246,63 @@ void HomePage::onHistoryUpdated(const QVariantList &datas)
     m_historyTable->scrollToBottom();
 }
 
-void HomePage::updateStatus(bool healthy)
+// ── S6：属性订阅 ──
+// 模式：信号（无参 NOTIFY）→ lambda 读 getter → 渲染辅助函数。
+// 连接晚于 facade.start()，start 期间的信号（如 configure 的规则状态归零）
+// 已经错过 —— 所以末尾手动补一帧初始状态，保证 UI 不是空白。
+void HomePage::bindServiceFacade(ServiceFacade *facade)
 {
-    if (healthy) {
+    if (!facade) return;
+
+    connect(facade, &ServiceFacade::serviceStateChanged, this, [this, facade]() {
+        applyServiceState(facade->serviceState());
+    });
+    connect(facade, &ServiceFacade::telemetryCountChanged, this, [this, facade]() {
+        applyCount(facade->telemetryCount());
+    });
+    connect(facade, &ServiceFacade::remainingSecondsChanged, this, [this, facade]() {
+        applyCountdown(facade->remainingSeconds());
+    });
+    connect(facade, &ServiceFacade::testVerdictChanged, this, [this, facade]() {
+        applyVerdict(facade->testVerdict());
+    });
+    connect(facade, &ServiceFacade::isRunningChanged, this, [this, facade]() {
+        applyMotorState(facade->isRunning());
+    });
+    connect(facade, &ServiceFacade::lastRuleNameChanged, this, [this, facade]() {
+        applyRuleState(facade->lastRuleName(), facade->triggeredRuleCount());
+    });
+
+    // 初始补帧
+    applyServiceState(facade->serviceState());
+    applyCount(facade->telemetryCount());
+    applyCountdown(facade->remainingSeconds());
+    applyVerdict(facade->testVerdict());
+    applyMotorState(facade->isRunning());
+    applyRuleState(facade->lastRuleName(), facade->triggeredRuleCount());
+}
+
+// ── S6 渲染辅助 ──
+void HomePage::applyServiceState(const QString &state)
+{
+    if (state == "online") {
         m_statusLabel->setText("● 在线");
         m_statusLabel->setStyleSheet("color: #22c55e; font-size: 14px; font-weight: bold;");
+    } else if (state == "degraded") {
+        m_statusLabel->setText("● 降级");
+        m_statusLabel->setStyleSheet("color: #f59e0b; font-size: 14px; font-weight: bold;");
     } else {
-        m_statusLabel->setText("● 异常");
+        m_statusLabel->setText("● 离线");
         m_statusLabel->setStyleSheet("color: #ef4444; font-size: 14px; font-weight: bold;");
     }
 }
 
-void HomePage::updateCount(int count)
+void HomePage::applyCount(int count)
 {
     m_countLabel->setText(QStringLiteral("采集: %1").arg(count));
 }
 
-void HomePage::updateCountdown(int seconds)
+void HomePage::applyCountdown(int seconds)
 {
     int h = seconds / 3600;
     int m = (seconds % 3600) / 60;
@@ -267,7 +313,7 @@ void HomePage::updateCountdown(int seconds)
         .arg(s, 2, 10, QChar('0')));
 }
 
-void HomePage::updateVerdict(const QString &verdict)
+void HomePage::applyVerdict(const QString &verdict)
 {
     if (verdict == "pass") {
         m_verdictLabel->setText("PASS");
@@ -280,7 +326,7 @@ void HomePage::updateVerdict(const QString &verdict)
     }
 }
 
-void HomePage::updateMotorState(bool running)
+void HomePage::applyMotorState(bool running)
 {
     if (running) {
         m_ssBtn->setText("停止");
@@ -288,5 +334,16 @@ void HomePage::updateMotorState(bool running)
     } else {
         m_ssBtn->setText("启动");
         m_ssBtn->setStyleSheet("background-color: #2563eb; color: white; font-weight: bold; padding: 6px 16px; border-radius: 4px;");
+    }
+}
+
+void HomePage::applyRuleState(const QString &ruleName, int triggeredCount)
+{
+    if (ruleName == "none" || triggeredCount <= 0) {
+        m_ruleLabel->setText("规则: 等待触发");
+        m_ruleLabel->setStyleSheet("color: #94a3b8; font-size: 13px; font-weight: bold;");
+    } else {
+        m_ruleLabel->setText(QStringLiteral("规则: %1 ×%2").arg(ruleName).arg(triggeredCount));
+        m_ruleLabel->setStyleSheet("color: #ef4444; font-size: 13px; font-weight: bold;");
     }
 }

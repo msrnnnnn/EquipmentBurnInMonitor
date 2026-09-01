@@ -122,5 +122,5 @@ void PollingScheduler::setAnomalyMode(bool on)
     Logger::instance().info(QStringLiteral("Anomaly sampling %1: interval -> %2ms")
                                 .arg(on ? "ON" : "OFF")
                                 .arg(on ? m_anomalyIntervalMs
-                                        : (m_tasks.isEmpty() ? 0 : m_tasks.front().normalIntervalMs)));
+                                        : (m_tasks.empty() ? 0 : m_tasks.front().normalIntervalMs)));
 }

@@ -19,7 +19,10 @@ SqliteRepository::~SqliteRepository()
     if (m_db.isOpen())
         m_db.close();
     m_db = QSqlDatabase();
-    QSqlDatabase::removeDatabase(m_connectionName);
+    // 防御：open() 从未执行过时（如 start 后立刻 stop，队列里的 open 被丢弃），
+    // 连接名是空串，removeDatabase("") 会误伤默认连接，这里直接跳过。
+    if (!m_connectionName.isEmpty())
+        QSqlDatabase::removeDatabase(m_connectionName);
 }
 
 void SqliteRepository::open(const QString &dbPath)

@@ -6,6 +6,8 @@
 #include <QComboBox>
 #include "equipmentdata.h"
 class QLineEdit;
+class QLabel;
+class ServiceFacade;
 
 class SettingsPage : public QWidget
 {
@@ -13,7 +15,8 @@ class SettingsPage : public QWidget
 public:
     explicit SettingsPage(QWidget *parent = nullptr);
     void bindSensor(EquipmentData *sensor);
-public slots:
+    // S6：连接状态 / 调度状态 / 最近规则消息 / 阈值快照 / 写消息
+    void bindServiceFacade(ServiceFacade *facade);
 signals:
 
 private:
@@ -28,6 +31,16 @@ private:
     QPushButton *m_saveBtn = nullptr;
     QPushButton *m_connectBtn = nullptr;
     QComboBox *m_modeCombo = nullptr;
+
+    // ── S6 状态标签 ──
+    QLabel *m_connStatusLabel = nullptr;   // 连接状态（33节）
+    QLabel *m_schedulerLabel = nullptr;    // 调度器启停
+    QLabel *m_ruleLabel = nullptr;         // 最近规则消息（33节）
+    QLabel *m_vibrationLabel = nullptr;    // 阈值快照 ×4（36节）
+    QLabel *m_powerLabel = nullptr;
+    QLabel *m_tempLabel = nullptr;
+    QLabel *m_rpmLabel = nullptr;
+    QLabel *m_writeMessageLabel = nullptr; // 阈值写入结果
 };
 
 #endif // SETTINGSPAGE_H

@@ -68,13 +68,9 @@ int main(int argc, char *argv[])
     facade.start(config);
     MainWindow w;
     w.setSensor(facade.getEquipmentData());
-
-    HomePage *home = w.homePage();
-    QObject::connect(&facade, &ServiceFacade::healthyChanged, home, &HomePage::updateStatus);
-    QObject::connect(&facade, &ServiceFacade::telemetryCountChanged, home, &HomePage::updateCount);
-    QObject::connect(&facade, &ServiceFacade::remainingSecondsChanged, home, &HomePage::updateCountdown);
-    QObject::connect(&facade, &ServiceFacade::testVerdictChanged, home, &HomePage::updateVerdict);
-    QObject::connect(&facade, &ServiceFacade::motorStateChanged, home, &HomePage::updateMotorState);
+    // S6：状态属性注入替代原来 5 条直连 —— 信号/槽的接线全部收进各页面内部，
+    // main 只负责"把东西交出去"，不再关心细节。
+    w.setServiceFacade(&facade);
 
     w.show();
 
