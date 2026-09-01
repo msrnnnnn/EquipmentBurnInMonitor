@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PREFIX_PATH "E:/Qt/6.10.0/mingw_64" CACHE PATH "Qt6 prefix")
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Sql PrintSupport Network Test)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Sql PrintSupport Network)
 
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -114,24 +114,3 @@ install(TARGETS EquipmentBurnInMonitor
 )
 
 qt_finalize_executable(EquipmentBurnInMonitor)
-
-# ── 单元测试最小集：只测纯逻辑组件（规则/TestRunner/配置），不碰 GUI/线程 ──
-# 注意：头文件必须显式列出 —— AUTOMOC 对 Q_OBJECT 类（Rule 基类等）的 moc 依赖
-# 头文件在 target 源码列表中，只列 .cpp 会漏掉基类元对象导致链接 undefined reference。
-set(TEST_SOURCES
-    ${SRC}/tests/tst_main.cpp
-    ${SRC}/src/rules/RuleEngine.cpp  ${SRC}/src/rules/RuleEngine.h
-    ${SRC}/src/rules/thresholdrule.cpp ${SRC}/src/rules/thresholdrule.h
-    ${SRC}/src/rules/ratechangerule.cpp ${SRC}/src/rules/ratechangerule.h
-    ${SRC}/src/rules/Rule.h
-    ${SRC}/src/test/TestRunner.cpp ${SRC}/src/test/TestRunner.h
-    ${SRC}/src/config/config.cpp ${SRC}/src/config/config.h
-    ${SRC}/src/logging/logger.cpp ${SRC}/src/logging/logger.h
-    ${SRC}/src/device/DeviceDriver.h
-    ${SRC}/src/modbus/ModbusTypes.h
-)
-qt_add_executable(unit_tests ${TEST_SOURCES})
-target_include_directories(unit_tests PRIVATE ${SRC} ${SRC}/src)
-target_link_libraries(unit_tests PRIVATE Qt6::Test Qt6::Core)
-enable_testing()
-add_test(NAME unit_tests COMMAND unit_tests)

@@ -238,7 +238,12 @@ QCustomPlot 第二条曲线挂 `yAxis2`（右轴，电流 0~30A），温度左�
 - **实测**：临时 main.cpp 3 秒后模拟点启动（验证后删除）→ temp_high(22) 触发 → `Auto-stop triggered by rule: temp_high` 只出现一次 → runStatus 分布 0×10/1×1（启动回读 1、停机回读 0）——**"启动→回读→超限→自动停机→回读"完整闭环**
 - 配置默认：temp_high / current_high 开 autoStop（安全规则），power/vib 只告警
 
-### 单元测试最小集（Qt Test）
+### 单元测试最小集（Qt Test）—— ⚠️ 已于 2026-09-01 按用户决定移除
+
+> **移除说明**：测试与 CI 均为 AI 实现。用户判断"不是自己写的不该留在求职作品里"，故将 `tests/`、`unit_tests` CMake target、`.github/workflows/ci.yml` 一并删除。
+> 本节保留作为**历史记录**——它证明过一件重要的事：测试抓到了 Bug 11（RateChangeRule 首帧哨兵）。以后若重新引入自动化测试，本节是现成的设计与踩坑清单。
+> 恢复方法：`git checkout fdaa834 -- tests .github CMakeLists.txt`（该提交含完整测试与 CI 配置）。
+
 - `tests/tst_main.cpp`：7 组用例 9 断言——阈值/变化率规则、引擎计数与信号、TestRunner 时长/bad 过滤/abort、ConfigLoader 解析（timeoutMs/registerType/autoStop）
 - CMake：`unit_tests` target + `enable_testing()/add_test()`，`ctest` 可跑
 - **坑 1**：测试 target 的头文件必须显式列出，否则 AUTOMOC 漏掉 Q_OBJECT 基类（Rule）的 moc → 链接 undefined reference（主程序列了所有 .h 所以没踩过）
@@ -269,7 +274,9 @@ connect success → (2s 响应超时, timeoutMs=2000 生效) → read failed →
 
 ## 8.8 工程化收尾：CI + LICENSE + 删除草稿
 
-- **CI**（`.github/workflows/ci.yml`）：Windows + Qt 6.10（win64_msvc2022_64）+ VS 2022 生成器，`-DCMAKE_PREFIX_PATH` 覆盖 CMakeLists 硬编码的本机 Qt 路径（`E:/Qt/6.10.0/mingw_64`），构建后 `ctest -C Release`（9 用例）。触发：push main/feat 分支 + PR。**⚠️ 无法本地实测**，推送后首次运行验证，MSVC 与本地 MinGW 的工具链差异是主要风险。
+- **CI**（`.github/workflows/ci.yml`）：Windows + Qt 6.10（win64_msvc2022_64）+ VS 2022 生成器，`-DCMAKE_PREFIX_PATH` 覆盖 CMakeLists 硬编码的本机 Qt 路径（`E:/Qt/6.10.0/mingw_64`），构建后 `ctest -C Release`（9 用例）。触发：push main/feat 分支 + PR。
+  **⚠️ 已于 2026-09-01 随测试一并移除**（用户决定：AI 实现的测试/CI 不留在求职作品里）。配置未经过实测验证。
+  **设计要点（若日后重配可参考）**：C++ 没有标准 ABI，Qt 库按编译器预编译（mingw 版 Qt 只能用 MinGW、msvc 版只能用 MSVC），所以 CI 选 MSVC 套件与本地 MinGW 不同——这反而多一层"代码在第二个编译器下也能编译"的可移植性验证。上位机 CI 的正确姿势是只跑**构建 + 纯逻辑测试**，不要试图跑 GUI。
 - **LICENSE**：MIT（Copyright 2026 msrnnnnn）。
 - **删除 `src/modbus/a.h/a.cpp`**：异步化早期接口草稿（与现行 modbustcpclient 定义同名类），代码零引用，用户拍板不留。同步清理 CMakeLists 注释、README、遗留清单。
 
@@ -376,10 +383,9 @@ QMetaObject::invokeMethod(m_sqliteRepository, [..]{ delete ..; }, Qt::BlockingQu
 ## 11. 遗留事项（未做，需决策）
 
 1. ~~`a.h/a.cpp` 异步草稿的去留~~ —— **已删除（2026-09-01，用户拍板"不留"）**：代码零引用，确认不再需要
-2. 自动化测试扩充：当前 9 用例只覆盖纯逻辑；ServiceFacade/调度器的线程级用例未做（需 QTest 起事件循环 + 线程编排，工作量大）
+2. ~~自动化测试~~ —— **已移除（2026-09-01 用户决定）**：原 9 用例（纯逻辑）+ CI 均删除；恢复见 §8.6 移除说明
 3. 01/02（bit）功能码链路已通但驱动解码只支持寄存器格式——若要支持 bit 采集项需配套解码器（当前标 bad 属诚实失败）
-4. CI 已配置（.github/workflows/ci.yml，Windows+Qt6+ctest）——推送后首次运行实测，可能 1~2 轮微调
-5. GUI 截图/演示视频（由用户本地截图，未纳入分支）
+4. GUI 截图/演示视频（由用户本地截图，未纳入分支）
 
 ---
 

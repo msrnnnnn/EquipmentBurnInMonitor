@@ -1,7 +1,5 @@
 # EquipmentBurnInMonitor 设备老化测试监控系统
 
-![CI](https://github.com/msrnnnnn/EquipmentBurnInMonitor/actions/workflows/ci.yml/badge.svg)
-
 面向工业设备老化测试（Burn-In Test）场景的 Qt 上位机监控软件。通过 Modbus TCP 实时采集电机运行遥测（温度 / 电流 / 转速 / 振动 / 电压 / 功率 共 6 路），完成规则判定、SQLite 历史存储、工业大屏展示与设备启停控制，并可自动执行 72 小时老化测试并给出 PASS/FAIL 判定。
 
 > 本项目由作者独立开发，同时作为 Qt 客户端开发方向的求职作品。
@@ -215,7 +213,6 @@ cmake --build build
 - [x] **四类功能码读链路**（01 线圈 / 02 离散输入 / 03 保持 / 04 输入，config `registerType` 驱动）
 - [x] **规则自动停机联动**（autoStop 规则命中且电机运行中 → 自动写停机线圈；实测"启动→回读 1→超限→停机→回读 0"闭环）
 - [x] 阈值快照"写成功才回写"（6 写收齐后回主线程更新，失败保留旧快照并提示）
-- [x] **单元测试最小集**（Qt Test：规则引擎 / TestRunner / 配置解析，9 用例全绿；已抓出并修复变化率规则首帧判断 bug）
 - [x] 配置加载与热更新（规则 + 采集任务 + 连接 + TestRunner 全量重建）
 - [x] Logger 单例 + Sink、MetricsCollector、DataCache
 
@@ -223,7 +220,7 @@ cmake --build build
 
 **P3 —— 工程化收尾**
 
-1. 自动化测试扩充（当前 9 用例覆盖纯逻辑；可加 ServiceFacade/调度器的线程级用例）
+1. 自动化测试（未做：纯逻辑与 UI 均无自动化用例，验证靠手动演示与实测实验）
 2. 断线分层验收实验固化（拔网线时间线已实测：响应超时 2s → 断连感知 → 1s 重连，connect 失败才指数退避）
 
 > 施工计划与文档出处见 `DEVELOPMENT_PLAN.md`（S1~S9 已全部完成）；源码级缺陷与面试追问防线见 `INTERVIEW_READINESS_REPORT.md`；本分支的设计决策、取舍与 Bug 排查全记录见 `BRANCH_NOTES.md`。
@@ -232,7 +229,7 @@ cmake --build build
 
 - 01/02（线圈/离散输入）功能码链路已通，但驱动解码层只服务寄存器格式（bit 类采集项会标 bad，属诚实失败）
 - `DiagnosticsReporter` 已实现但未实例化；`DataCache` 只写不读（快照 API 供诊断预留，Metrics 摘要已接 60s 日志消费者）
-- GUI 与线程层无自动化测试（纯逻辑 9 用例由 unit_tests 覆盖；UI 靠手动演示验证）
+- 无自动化测试（验证靠手动演示 + 可复现的实测实验，见 `BRANCH_NOTES.md` 实测记录表）
 - 视频页为占位骨架（视频模块不在路线图内）
 
 ## 第三方依赖
