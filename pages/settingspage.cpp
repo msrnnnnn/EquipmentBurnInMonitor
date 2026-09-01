@@ -178,9 +178,17 @@ void SettingsPage::bindServiceFacade(ServiceFacade *facade)
 
     // P0-4：Apply Profile —— 读五个输入框构造 TestProfile，交给门面生效。
     // 演示点：Duration 改 0.02（≈72 秒）→ 首页倒计时立刻变为 ~00:01:12 并开始倒数。
+    // B7：时长支持小数小时 —— >=1 走 testDurationHours，<1 折算成分钟（testDurationMinutes）。
     connect(m_applyProfileBtn, &QPushButton::clicked, this, [this, facade]() {
         TestProfile p;
-        p.testDurationHours = m_profileDuration->text().toInt();
+        const double hours = m_profileDuration->text().toDouble();
+        if (hours >= 1.0) {
+            p.testDurationHours = qMax(1, static_cast<int>(hours));
+            p.testDurationMinutes = 0;
+        } else {
+            p.testDurationHours = 0;
+            p.testDurationMinutes = qMax(1, static_cast<int>(hours * 60.0 + 0.5));
+        }
         p.ratedRpm = m_profileRpm->text().toInt();
         p.ratedLoad = m_profileLoad->text().toDouble();
         p.maxMotorTemp = m_profileMaxTemp->text().toDouble();

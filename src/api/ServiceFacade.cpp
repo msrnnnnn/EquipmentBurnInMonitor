@@ -6,6 +6,7 @@
 #include <QDir>
 #include <QMetaObject>
 #include <QTime>
+#include <algorithm>
 
 using burninsys::Logger;
 
@@ -58,13 +59,8 @@ void ServiceFacade::configure(const Config &config)
         Logger::instance().error("no items, abort configure");
         return;
     }
+    // ── 规则体系（主线程对象）──
     rebuildRules(config);
-    // B9 修复：scheduler 可能已 moveToThread 到工作线程，不能再直接调。
-    // 用 invokeMethod 以 scheduler 为上下文投递 —— 未搬家时（start() 内）直接执行，
-    // 已搬家时自动变 QueuedConnection，同一段代码两条路径都安全。
-    QMetaObject::invokeMethod(m_pollingScheduler, [this, config]() {
-        m_pollingScheduler->rebuildTasks(config);
-    });
     // S5：配置变更 = 规则体系重启，状态归零（40节）
     m_lastRuleMessage = "none";
     m_lastRuleName = "none";
@@ -80,6 +76,34 @@ void ServiceFacade::configure(const Config &config)
     emit triggeredRuleCountChanged();
     emit engineEvaluationCountChanged();
     emit engineRuleCountChanged();
+
+    // B6：记录采集项名单 —— 帧聚合按 schema 核对（不再数 key 个数）
+    m_itemNames.clear();
+    for (const auto &item : config.items)
+        m_itemNames.append(item.name);
+
+    // ── 组件装配（S9：stop 后指针全空，这里幂等重建；首次 start 也走这里）──
+    if (m_workThread == nullptr) m_workThread = new QThread(this);
+    if (m_dbThread == nullptr)   m_dbThread  = new QThread(this);
+    if (m_modbusSession == nullptr) m_modbusSession = new ModbusSession;
+    if (m_pollingScheduler == nullptr) {
+        m_pollingScheduler = new PollingScheduler(m_modbusSession);
+        // sampleReady → 门面 的连接在此建立（scheduler 在此创建，连接随对象走）
+        connect(m_pollingScheduler, &PollingScheduler::sampleReady, this, &ServiceFacade::onSampleReady);
+    }
+    if (m_sqliteRepository == nullptr) m_sqliteRepository = new SqliteRepository;
+
+    // ── 线程归属（幂等：重复 moveToThread 无害；线程 start 幂等）──
+    m_sqliteRepository->moveToThread(m_dbThread);
+    m_pollingScheduler->moveToThread(m_workThread);
+    m_modbusSession->moveToThread(m_workThread);
+    if (!m_workThread->isRunning()) m_workThread->start();
+    if (!m_dbThread->isRunning())   m_dbThread->start();
+
+    // B9：任务重建必须投递到调度线程执行（对象已搬家后直接调就是跨线程）
+    QMetaObject::invokeMethod(m_pollingScheduler, [this, config]() {
+        m_pollingScheduler->rebuildTasks(config);
+    });
 }
 
 void ServiceFacade::rebuildRules(const Config &config)
@@ -102,20 +126,15 @@ void ServiceFacade::rebuildRules(const Config &config)
 
 void ServiceFacade::start(const Config &config)
 {
+    if (config.items.isEmpty()) {
+        Logger::instance().error("start aborted: empty items");
+        return;
+    }
     m_config = config;
     m_configWatcher.watch(QCoreApplication::applicationDirPath() + "/config.json");
-    // S8：采集与存储各占一个线程，磁盘 IO 慢不再拖累采集
-    m_workThread = new QThread(this);
-    m_dbThread  = new QThread(this);
-    m_modbusSession = new ModbusSession;
-    m_pollingScheduler = new PollingScheduler(m_modbusSession);
-    m_sqliteRepository = new SqliteRepository;
-    configure(config);   // 此时对象还没搬家，invokeMethod 直接执行
-    m_sqliteRepository->moveToThread(m_dbThread);
-    m_pollingScheduler->moveToThread(m_workThread);
-    m_modbusSession->moveToThread(m_workThread);
-    m_workThread->start();
-    m_dbThread->start();
+    // S9：组件创建/迁移/线程启动全部收进 configure（幂等），start 只做"启动动作"
+    configure(config);
+
     QString dbPath = config.dataFilePath;
     if (QDir::isRelativePath(dbPath)) {
         dbPath = QCoreApplication::applicationDirPath() + "/" + dbPath;
@@ -128,13 +147,14 @@ void ServiceFacade::start(const Config &config)
         m_modbusSession->start(config.endpoint.host, config.endpoint.port, config.endpoint.timeoutMs);
     });
     QMetaObject::invokeMethod(m_pollingScheduler, &PollingScheduler::start);
-    m_healthMonitor = new HealthMonitor(m_modbusSession,this);
+    if (!m_healthMonitor) {
+        m_healthMonitor = new HealthMonitor(m_modbusSession,this);
+        connect(m_healthMonitor, &HealthMonitor::degraded,m_modbusSession,&ModbusSession::reconnect);
+        connect(m_pollingScheduler,&PollingScheduler::sampleReady,m_healthMonitor,&HealthMonitor::onSample);
+    }
     m_healthMonitor->start();
     m_testRunner.setProfile(config.testProfile);
     m_testRunner.start();
-    connect(m_healthMonitor, &HealthMonitor::degraded,m_modbusSession,&ModbusSession::reconnect);
-    connect(m_pollingScheduler,&PollingScheduler::sampleReady,m_healthMonitor,&HealthMonitor::onSample);
-    connect(m_pollingScheduler, &PollingScheduler::sampleReady, this, &ServiceFacade::onSampleReady);
     m_uiTimer.start();
     refreshUiState();   // 首帧立即刷一次，不用等 1 秒
 }
@@ -142,7 +162,7 @@ void ServiceFacade::start(const Config &config)
 void ServiceFacade::stop()
 {
     m_uiTimer.stop();
-    m_testRunner.stop();
+    m_testRunner.abort();   // B7：人为停止判 aborted，不算 pass/fail
     // B4 修复：healthMonitor 之前只 stop 不 delete，start 第二次会重复连接信号
     if (m_healthMonitor) {
         m_healthMonitor->stop();
@@ -153,15 +173,17 @@ void ServiceFacade::stop()
     {
         QMetaObject::invokeMethod(m_modbusSession,&ModbusSession::stop,Qt::BlockingQueuedConnection);
         QMetaObject::invokeMethod(m_pollingScheduler,&PollingScheduler::stop,Qt::BlockingQueuedConnection);
-        m_workThread->quit();
-        m_workThread->wait();
-        // S8：SQLite 连接在 db 线程创建，析构（close + removeDatabase）必须在同一线程执行，
-        // 否则跨线程回收连接会出 "still in use" 类问题。阻塞投递等它真正删完。
-        m_dbThread->quit();
-        m_dbThread->wait();
+        // S8+Bug8 修复：SqliteRepository 的析构（close + removeDatabase）必须在 db 线程执行，
+        // 且必须【在线程 quit 之前】以 BlockingQueuedConnection 投递 ——
+        // quit 之后事件循环已退出，再投 BlockingQueued 会永久阻塞（真死锁，不是理论问题）。
+        // 投递顺序保证排在队列末尾的 delete 会先处理完所有排队的 save()。
         QMetaObject::invokeMethod(m_sqliteRepository, [this]() {
             delete m_sqliteRepository;
         }, Qt::BlockingQueuedConnection);
+        m_workThread->quit();
+        m_workThread->wait();
+        m_dbThread->quit();
+        m_dbThread->wait();
         delete m_pollingScheduler;
         delete m_modbusSession;
         m_pollingScheduler = nullptr;
@@ -216,12 +238,22 @@ void ServiceFacade::onSampleReady(const TelemetrySample &sample)
     }
 
 
-    // 6个指标都到齐了才推（现在含 runStatus 是 9 个 key，size>=8 仍成立）
-    if (m_pendingRecord.size() >= 8) {  // time + 6指标 + anomaly = 8
+    // B6：帧聚合改"按 schema 核对 + 超时兜底"。
+    // 旧实现数 key 个数（>=8 就推）：某指标丢一轮时，上一轮旧值残留 map 里凑数，
+    // 表格出现"新旧混合"的一行；items 只配 5 个时 size 永远凑不够，表格永久冻结。
+    // 现在：按 config 的 items 名单逐项核对，攒齐才推；1.5s 攒不齐强制推（缺项留空）。
+    if (!m_recordTimer.isValid())
+        m_recordTimer.start();
+    const bool complete = std::all_of(m_itemNames.cbegin(), m_itemNames.cend(),
+                                      [this](const QString &n) { return m_pendingRecord.contains(n); });
+    const bool timeout = m_recordTimer.elapsed() >= 1500;
+    if (complete || timeout) {
         m_equipmentData.provider().pushSample(m_pendingRecord);
         m_pendingRecord.clear();
+        m_recordTimer.invalidate();
     }
-    m_testRunner.recordSample(sample.name,sample.value);
+    // B7：bad 样本不进测试峰值（解码失败值 0 会污染 qMax 峰值，误判 FAIL）
+    m_testRunner.recordSample(sample.name, sample.value, good);
     m_cache.put(sample);
     m_metricsCollector.record(sample);
     QMetaObject::invokeMethod(m_sqliteRepository,[=](){
@@ -265,11 +297,13 @@ void ServiceFacade::onThresholdUpdated(double motorTemp, double current, double 
 
 void ServiceFacade::onConfigUpdated(const Config &config)
 {
-    Logger::instance().info("Config file changed, reloading rules & tasks");
-    // S5 重构：热更新 = 重新 configure（规则重建 + 状态归零 + 任务重建），
-    // 任务重建已走 invokeMethod，跨线程安全。全量重启（stop→configure→start）留待 S9。
-    m_config = config;
-    configure(config);
+    // S9：热更新全量重启 = stop → start。
+    // start() 内部会 configure（重建规则/任务/组件）+ 重新连接 + 重启 TestRunner，
+    // stop() 保证旧组件/线程/信号全部回收，不会泄漏也不会重复 connect。
+    // 配置合法性由 ConfigWatcher（B1）把关 —— 无效配置根本不发 updated()。
+    Logger::instance().info("Config file changed, full reload (stop -> start)");
+    stop();
+    start(config);
 }
 
 void ServiceFacade::onMotorCommand()

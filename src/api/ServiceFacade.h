@@ -11,6 +11,7 @@
 #include "rules/RuleEngine.h"
 #include "scheduler/PollingScheduler.h"
 #include "test/TestRunner.h"
+#include <QElapsedTimer>
 #include <QObject>
 #include <QStringList>
 #include <QThread>
@@ -145,6 +146,9 @@ private:
     bool m_isRunning{false};
     int m_telemetryCount{0};
     QVariantMap m_pendingRecord;
+    // B6：帧聚合按 schema 核对 —— 记 items 名单，攒齐才推；1.5s 攒不齐强制推
+    QStringList m_itemNames;
+    QElapsedTimer m_recordTimer;
     Config m_config;
     ConfigWatcher m_configWatcher;
     TestRunner m_testRunner;

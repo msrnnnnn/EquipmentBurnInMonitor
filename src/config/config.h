@@ -66,6 +66,7 @@ struct ThresholdRegisterConfig
 struct TestProfile
 {
     int testDurationHours{72};       // 测试时长（72小时=3天标准老化）
+    int testDurationMinutes{0};      // B7：分钟级时长（>0 时优先于 hours），演示 72h→1 分钟用
     int ratedRpm{1500};              // 额定转速
     double ratedLoad{1.0};           // 额定负载系数（1.0=满载）
     double maxMotorTemp{85.0};       // 合格阈值：最高温度

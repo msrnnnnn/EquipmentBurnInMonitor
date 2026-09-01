@@ -137,25 +137,39 @@ HomePage::HomePage(QWidget *parent)
     dateTicker->setDateTimeFormat("HH:mm:ss");
     m_chart->xAxis->setTicker(dateTicker);
 
-    // 添加一条曲线（温度），红色，2px粗
+    // 添加两条曲线：温度（左轴，红）+ 电流（右轴，蓝）—— A2 双 Y 轴量纲隔离
     m_chart->addGraph();
     m_chart->graph(0)->setPen(QPen(QColor(0xef, 0x44, 0x44), 2));
     m_chart->graph(0)->setName("Motor Temp");
 
-    // Y轴固定范围 20~100°C
+    // 右轴：QCustomPlot 的 yAxis2 默认隐藏，这里显式开出来
+    m_chart->addGraph(m_chart->xAxis, m_chart->yAxis2);
+    m_chart->graph(1)->setPen(QPen(QColor(0x3b, 0x82, 0xf6), 2));
+    m_chart->graph(1)->setName("Current");
+
+    // Y轴固定范围 20~100°C（左轴）
     m_chart->yAxis->setRange(20, 100);
     m_chart->yAxis->setLabel("Temperature (°C)");
 
-    // 暗色主题配色
+    // 右轴 0~30A（电流 8~16A 区间留余量）
+    m_chart->yAxis2->setVisible(true);
+    m_chart->yAxis2->setRange(0, 30);
+    m_chart->yAxis2->setLabel("Current (A)");
+
+    // 暗色主题配色（右轴与左轴同款）
     m_chart->setBackground(QColor(0x11, 0x18, 0x27));
     m_chart->xAxis->setLabelColor(QColor(0xcb, 0xd5, 0xe1));
     m_chart->yAxis->setLabelColor(QColor(0xcb, 0xd5, 0xe1));
+    m_chart->yAxis2->setLabelColor(QColor(0xcb, 0xd5, 0xe1));
     m_chart->xAxis->setTickLabelColor(QColor(0xcb, 0xd5, 0xe1));
     m_chart->yAxis->setTickLabelColor(QColor(0xcb, 0xd5, 0xe1));
+    m_chart->yAxis2->setTickLabelColor(QColor(0xcb, 0xd5, 0xe1));
     m_chart->xAxis->setBasePen(QPen(QColor(0x33, 0x41, 0x55)));
     m_chart->yAxis->setBasePen(QPen(QColor(0x33, 0x41, 0x55)));
+    m_chart->yAxis2->setBasePen(QPen(QColor(0x33, 0x41, 0x55)));
     m_chart->xAxis->grid()->setPen(QPen(QColor(0x33, 0x41, 0x55)));
     m_chart->yAxis->grid()->setPen(QPen(QColor(0x33, 0x41, 0x55)));
+    m_chart->yAxis2->grid()->setPen(QPen(QColor(0x33, 0x41, 0x55)));
 
     // X轴初始范围：当前时间前后30秒
     const double now = QDateTime::currentSecsSinceEpoch();
@@ -214,10 +228,12 @@ void HomePage::bindSensor(EquipmentData *sensor)
     // [面试重点] QCustomPlot 实时追加范式：addData → removeDataBefore → 滑动X轴 → replot
     // rpQueuedReplot 异步重绘，不阻塞信号处理，高频数据时比同步replot高效
     connect(sensor, &EquipmentData::temperatureChanged, this, [this, sensor]() {
-        //Logger::instance().info("rpQueuedReplot 异步重绘");
         const double now = QDateTime::currentSecsSinceEpoch();
         m_chart->graph(0)->addData(now, sensor->getTemperature());
         m_chart->graph(0)->data()->removeBefore(now - 30.0);  // 只保留最近30秒
+        // A2：电流走右轴，同一时间戳追加
+        m_chart->graph(1)->addData(now, sensor->getCurrent());
+        m_chart->graph(1)->data()->removeBefore(now - 30.0);
         m_chart->xAxis->setRange(now - 30, now);         // X轴滑动窗口
         m_chart->replot(QCustomPlot::rpQueuedReplot);    // 异步重绘
     });
@@ -231,30 +247,44 @@ void HomePage::bindSensor(EquipmentData *sensor)
 
 void HomePage::onHistoryUpdated(const QVariantList &datas)
 {
+    // B5：增量刷新 —— 每帧只处理新增行，旧行不动。
+    // provider 的 m_history 是"尾部追加 + 满 50 裁头"：UI 里已有的行内容永不变，
+    // 每帧只多 1 行（满 50 时头部被裁 1 行）。
+    // 旧实现每秒全量重建 350 个 QTableWidgetItem，S4 高频采样后会变每秒 3500 次。
+    const int curRows = m_historyTable->rowCount();
+
+    if (datas.size() < curRows) {
+        // 异常收缩（理论上不发生）：退回全量重建兜底
+        m_historyTable->setRowCount(0);
+    } else if (datas.size() == curRows) {
+        // cap 稳态（50 行）：头部被裁掉一行，先删最旧
+        m_historyTable->removeRow(0);
+    }
+
+    auto makeItem = [](const QString &text, const QColor &bg, const QColor &fg) {
+        auto *item = new QTableWidgetItem(text);
+        item->setBackground(bg);
+        item->setForeground(fg);
+        return item;
+    };
+
+    const int startRow = m_historyTable->rowCount();
     m_historyTable->setRowCount(datas.size());
-    for (int i = 0; i < datas.size(); ++i) {
+    for (int i = startRow; i < datas.size(); ++i) {
         const auto &row = datas[i].toMap();
         const qint64 ts = row["time"].toLongLong();
         const QString timeStr = QDateTime::fromMSecsSinceEpoch(ts).toString("hh:mm:ss");
-
         const bool isAnomaly = row.value("anomaly", false).toBool();
         const QColor bgColor = isAnomaly ? QColor(0x7f, 0x1d, 0x1d) : QColor(0x11, 0x18, 0x27);
         const QColor fgColor = isAnomaly ? QColor(0xfe, 0xf2, 0xf2) : QColor(0xe2, 0xe8, 0xf0);
 
-        auto makeItem = [&](const QString &text) {
-            auto *item = new QTableWidgetItem(text);
-            item->setBackground(bgColor);
-            item->setForeground(fgColor);
-            return item;
-        };
-
-        m_historyTable->setItem(i, 0, makeItem(timeStr));
-        m_historyTable->setItem(i, 1, makeItem(QString::number(row["temperature"].toDouble(), 'f', 1)));
-        m_historyTable->setItem(i, 2, makeItem(QString::number(row["current"].toDouble(), 'f', 1)));
-        m_historyTable->setItem(i, 3, makeItem(QString::number(row["rpm"].toDouble(), 'f', 0)));
-        m_historyTable->setItem(i, 4, makeItem(QString::number(row["vibration"].toDouble(), 'f', 1)));
-        m_historyTable->setItem(i, 5, makeItem(QString::number(row["voltage"].toDouble(), 'f', 1)));
-        m_historyTable->setItem(i, 6, makeItem(QString::number(row["power"].toDouble(), 'f', 1)));
+        m_historyTable->setItem(i, 0, makeItem(timeStr, bgColor, fgColor));
+        m_historyTable->setItem(i, 1, makeItem(QString::number(row["temperature"].toDouble(), 'f', 1), bgColor, fgColor));
+        m_historyTable->setItem(i, 2, makeItem(QString::number(row["current"].toDouble(), 'f', 1), bgColor, fgColor));
+        m_historyTable->setItem(i, 3, makeItem(QString::number(row["rpm"].toDouble(), 'f', 0), bgColor, fgColor));
+        m_historyTable->setItem(i, 4, makeItem(QString::number(row["vibration"].toDouble(), 'f', 1), bgColor, fgColor));
+        m_historyTable->setItem(i, 5, makeItem(QString::number(row["voltage"].toDouble(), 'f', 1), bgColor, fgColor));
+        m_historyTable->setItem(i, 6, makeItem(QString::number(row["power"].toDouble(), 'f', 1), bgColor, fgColor));
     }
     m_historyTable->scrollToBottom();
 }
@@ -334,6 +364,10 @@ void HomePage::applyVerdict(const QString &verdict)
     } else if (verdict == "fail") {
         m_verdictLabel->setText("FAIL");
         m_verdictLabel->setStyleSheet("color: #ef4444; font-size: 16px; font-weight: bold;");
+    } else if (verdict == "aborted") {
+        // B7：人为中止（关机/热更新）—— 灰色 ABORTED，不是 PASS/FAIL
+        m_verdictLabel->setText("ABORTED");
+        m_verdictLabel->setStyleSheet("color: #94a3b8; font-size: 14px; font-weight: bold;");
     } else {
         m_verdictLabel->setText("");
     }

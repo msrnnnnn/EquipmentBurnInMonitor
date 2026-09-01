@@ -77,6 +77,7 @@ TestProfile ConfigLoader::parseTestProfile(const QJsonObject &obj) const
 {
     TestProfile tp;
     tp.testDurationHours = obj.value("testDurationHours").toInt(tp.testDurationHours);
+    tp.testDurationMinutes = obj.value("testDurationMinutes").toInt(tp.testDurationMinutes);
     tp.maxMotorTemp = obj.value("maxMotorTemp").toDouble(tp.maxMotorTemp);
     tp.maxVibration = obj.value("maxVibration").toDouble(tp.maxVibration);
     tp.sampleIntervalMs = obj.value("sampleIntervalMs").toInt(tp.sampleIntervalMs);

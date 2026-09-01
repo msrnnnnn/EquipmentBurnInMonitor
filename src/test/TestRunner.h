@@ -10,11 +10,12 @@ public:
     explicit TestRunner(QObject *parent = nullptr);
     void setProfile(const TestProfile &profile);  // 设置配置
     void start();       // 重置状态，启动定时器
-    void stop();        // 停定时器，算 verdict
+    void stop();        // 自然结束（到时）：算 verdict
+    void abort();       // B7：人为中止（关机/热更新）：判 aborted，不算 pass/fail
     bool isRunning() const;
     int remainingSeconds() const;
     QString verdict() const;
-    void recordSample(const QString &name, double value);  // 更新峰值
+    void recordSample(const QString &name, double value, bool good);  // B7：bad 样本不进峰值
 signals:
     void tick(int remainingSeconds);        // 每秒发
     void finished(const QString &verdict);  // 测试结束发
