@@ -79,11 +79,13 @@ QString Logger::format(Level level, const QString &msg) const
 
 void Logger::emitLine(Level level, const QString &msg)
 {
+    // B11：级别判断挪进锁内 —— 旧代码在锁外读 m_level，setLevel（带锁）并发时是
+    // TSAN 级数据竞争（ca96461 竞争修复的漏网之鱼）。锁内读+写统一序列化。
+    QMutexLocker locker(&m_mutex);
     if (level < m_level)
         return;
 
     const auto line = format(level, msg);
-    QMutexLocker locker(&m_mutex);
     for (const auto &sink : std::as_const(m_sinks))
     {
         sink(line);

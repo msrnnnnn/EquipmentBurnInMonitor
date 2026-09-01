@@ -202,10 +202,13 @@ QByteArray ModbusSimulator::handleRequest(const QByteArray &adu)
             out << m_input.value(start + i, 0);
         return buildReadResponse(transaction, unitId, function, payload);
     }
-    case ModbusFunction::WriteSingleRegister:
-        m_holding[start] = quantity;
-        mirrorStartStop(start, quantity);
-        return buildWriteResponse(transaction, unitId, function, start, quantity);
+    case ModbusFunction::WriteSingleRegister: {
+        // B11：变量名语义修正 —— 0x06 请求里这个字段是"要写的寄存器值"，不是数量
+        const quint16 value = quantity;
+        m_holding[start] = value;
+        mirrorStartStop(start, value);
+        return buildWriteResponse(transaction, unitId, function, start, value);
+    }
     case ModbusFunction::WriteSingleCoil: {
         // 写单线圈（主站"启停"按钮用 modbus_write_bit → 0x05）
         // 规范值：0xFF00=ON / 0x0000=OFF，统一存成标准值便于读回

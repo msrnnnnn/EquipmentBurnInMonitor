@@ -436,9 +436,34 @@ void ServiceFacade::applyTestProfile(const TestProfile &profile)
     emit remainingSecondsChanged(); // 不等 1s tick，立即刷 UI
 }
 
+// ── B11：MetricsCollector 消费者 —— 统计摘要进日志 ──
+void ServiceFacade::logMetricsSummary()
+{
+    const auto all = m_metricsCollector.allMetrics();
+    if (all.isEmpty())
+        return;
+    QStringList parts;
+    for (const auto &m : all) {
+        parts << QStringLiteral("%1[min=%2 max=%3 avg=%4 n=%5]")
+                     .arg(m.name)
+                     .arg(m.min, 0, 'f', 2)
+                     .arg(m.max, 0, 'f', 2)
+                     .arg(m.avg, 0, 'f', 2)
+                     .arg(m.count);
+    }
+    Logger::instance().info(QStringLiteral("Metrics summary: %1").arg(parts.join(' ')));
+}
+
 // ── S5 属性刷新：1s 周期，全部边沿检测 ──
 void ServiceFacade::refreshUiState()
 {
+    // B11：MetricsCollector 消费者 —— 每 60 次 tick（60s）把统计摘要打进日志，
+    // 让"每样本一次锁"的收集开销有真实产出（原为只写不读）。
+    if (++m_metricsLogCounter >= 60) {
+        m_metricsLogCounter = 0;
+        logMetricsSummary();
+    }
+
     const bool connected = m_modbusSession && m_modbusSession->isConnected();
     if (connected != m_modbusConnected) {
         m_modbusConnected = connected;

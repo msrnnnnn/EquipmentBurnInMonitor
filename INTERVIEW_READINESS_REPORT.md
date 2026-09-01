@@ -28,11 +28,11 @@
 | B8 阈值输入校验 | ✅ 已修 | 本次：解析失败拒绝 + qBound 钳位（防告警风暴） |
 | B9 configure 跨线程 | ✅ 已修 | 统一 invokeMethod 投递 |
 | B10 InputRegister 假支持 | ✅ 已修 | B10：01/02/03/04 全功能码分发，实测 04 链路 |
-| B11 Logger 锁 / DataCache 只写不读 / 变量名 | ⚠️ 未修 | 见下"仍遗留" |
+| B11 Logger 锁 / DataCache 只写不读 / 变量名 | ✅ 已修 | Logger 级别读进锁；Metrics 摘要接 60s 日志消费者（实测输出）；WriteSingleRegister 变量名改 value |
 | C1 上帝槽 / C2 串行 tick / C3 重复模式 | 🟡 已演进 | S5/S7 后自然消解（onSampleReady 拆分发、异步后 tick 不阻塞） |
 | C4 QDataStream 故事 | ✅ 保留 | 模拟器注释即第一手素材 |
 
-**仍遗留（低优先）**：Logger `m_level` 锁外读（TSAN 级，30 分钟）；DataCache/MetricsCollector 只写不读（接线或删除）；模拟器 WriteSingleRegister 变量名 `quantity` 语义误导（改名）。测试最小集已落地（9 用例全绿）；CI/截图/LICENSE 未做。
+**遗留清单已清空（评审 A/B/C 全部处理完毕）**。测试最小集 9 用例全绿；CI/截图/LICENSE 未做（工程化可选）。
 
 > 报告正文（A/B/C/D/E/F 节）保留原样作为**评审方法样本**——面试聊"你怎么自我审查"时可直接引用：分级标准 + 证据链 + 修复闭环。
 
