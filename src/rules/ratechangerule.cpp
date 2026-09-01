@@ -22,7 +22,8 @@ RuleResult RateChangeRule::evaluate(const TelemetrySample &sample) const
         if (sample.timestampMs == m_lastTimestamp) {
             return {};  // 时间差为0，跳过
         }
-        double rate = qAbs(m_lastValue - sample.value)/((sample.timestampMs - m_lastTimestamp) / 1000);
+        // 注意除以 1000.0 而不是 1000：整数除法在 Δt < 1 秒时会得到 0，导致 rate 除零为 inf
+        double rate = qAbs(m_lastValue - sample.value)/((sample.timestampMs - m_lastTimestamp) / 1000.0);
         m_lastTimestamp = sample.timestampMs;
         m_lastValue = sample.value;
         if(rate >= m_maxRate)

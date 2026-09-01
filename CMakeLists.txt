@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PREFIX_PATH "E:/Qt/6.10.0/mingw_64" CACHE PATH "Qt6 prefix")
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Sql PrintSupport)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Sql PrintSupport Network)
 
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -62,7 +62,10 @@ qt_add_executable(EquipmentBurnInMonitor
     src/rules/thresholdrule.h src/rules/thresholdrule.cpp
     src/rules/ratechangerule.h src/rules/ratechangerule.cpp
     src/test/TestRunner.cpp src/test/TestRunner.h
-
+    src/simulator/modbus_simulator.h src/simulator/modbus_simulator.cpp
+    # src/modbus/a.h / a.cpp 是异步化早期接口草稿（worker 为空壳、m_ctx 用 QMutex 的旧版），
+    # 与现行 modbustcpclient.h/.cpp 定义同名类，不能同时参与编译。
+    # 文件保留在磁盘上供对照参考，暂不加入构建。
 
 )
 
@@ -84,10 +87,13 @@ target_link_libraries(EquipmentBurnInMonitor PRIVATE
     Qt6::Widgets
     Qt6::PrintSupport
     Qt6::Sql
+    Qt6::Network
     ws2_32
 )
 
-target_compile_definitions(EquipmentBurnInMonitor PRIVATE FD_SETSIZE=1024)
+# FD_SETSIZE 必须足够大：libmodbus 在 Windows 上会把 socket 句柄值 >= FD_SETSIZE 的连接
+# 当异常拒绝（errno=EINVAL）。Qt 程序启动后句柄基数高，1024 不够，调大到 8192。
+target_compile_definitions(EquipmentBurnInMonitor PRIVATE FD_SETSIZE=8192)
 target_link_libraries(EquipmentBurnInMonitor PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 
 if(Qt6_VERSION VERSION_LESS 6.1.0)

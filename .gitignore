@@ -84,3 +84,8 @@ CMakeLists.txt.user*
 .mimosa/
 AGENTS.md
 CLAUDE.md
+DEVELOPMENT_PLAN.md
+.workbuddy
+面试回答.md
+.codegraph
+.qtcreator

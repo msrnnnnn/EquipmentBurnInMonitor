@@ -163,8 +163,15 @@ void ServiceFacade::onThresholdUpdated(double motorTemp, double current, double 
         req.values.append(static_cast<quint16>(values[i] / regs[i].scale));
         req.type = RegisterType::HoldingRegister;
         req.unitId = m_config.endpoint.unitId;
-        QMetaObject::invokeMethod(m_modbusSession,[this,req](){
-            m_modbusSession->write(req);
+        // 回调式写入：不再是"只写不验" —— 写失败会留下日志，原来这种失败是静默的。
+        // addr 按值捕获：回调在工作线程执行，不能跨线程访问 m_config。
+        const quint16 addr = regs[i].address;
+        QMetaObject::invokeMethod(m_modbusSession,[this,req,addr](){
+            m_modbusSession->write(req, [addr](ModbusResponse rsp){
+                if(!rsp.success)
+                    Logger::instance().warn(QStringLiteral("Threshold write failed (addr=%1): %2")
+                                                .arg(addr).arg(rsp.error));
+            });
         },Qt::QueuedConnection);
     }
 }
@@ -196,8 +203,12 @@ void ServiceFacade::onMotorCommand()
         m_isRunning = false;
     }
     emit motorStateChanged(m_isRunning);
+    // 状态仍在本线程（GUI 线程）乐观更新；回调只负责把"写失败"暴露出来。
     QMetaObject::invokeMethod(m_modbusSession,[this,req](){
-        m_modbusSession->write(req);
+        m_modbusSession->write(req, [](ModbusResponse rsp){
+            if(!rsp.success)
+                Logger::instance().warn(QStringLiteral("Motor command write failed: %1").arg(rsp.error));
+        });
     },Qt::QueuedConnection);
 }
 
@@ -209,7 +220,10 @@ void ServiceFacade::onModeChanged(int mode)
     req.startAddress = m_config.modeCommand.address;
     req.values.append(static_cast<quint16>(mode));
     QMetaObject::invokeMethod(m_modbusSession,[this,req](){
-        m_modbusSession->write(req);
+        m_modbusSession->write(req, [](ModbusResponse rsp){
+            if(!rsp.success)
+                Logger::instance().warn(QStringLiteral("Mode command write failed: %1").arg(rsp.error));
+        });
     },Qt::QueuedConnection);
 }
 
