@@ -63,9 +63,8 @@ qt_add_executable(EquipmentBurnInMonitor
     src/rules/ratechangerule.h src/rules/ratechangerule.cpp
     src/test/TestRunner.cpp src/test/TestRunner.h
     src/simulator/modbus_simulator.h src/simulator/modbus_simulator.cpp
-    # src/modbus/a.h / a.cpp 是异步化早期接口草稿（worker 为空壳、m_ctx 用 QMutex 的旧版），
-    # 与现行 modbustcpclient.h/.cpp 定义同名类，不能同时参与编译。
-    # 文件保留在磁盘上供对照参考，暂不加入构建。
+    # 早期异步化接口草稿 a.h/a.cpp 已删除（与现行 modbustcpclient 定义同名类，
+    # 仅为历史对照保留，确认不再需要）
 
 )
 

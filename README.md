@@ -234,7 +234,6 @@ cmake --build build
 - `DiagnosticsReporter` 已实现但未实例化；`DataCache` / `MetricsCollector` 当前只写不读
 - GUI 与线程层无自动化测试（纯逻辑 9 用例由 unit_tests 覆盖；UI 靠手动演示验证）
 - 视频页为占位骨架（视频模块不在路线图内）
-- `src/modbus/a.h/a.cpp` 是异步化的早期接口草稿，与现行 `modbustcpclient` 定义同名类，已刻意排除出构建，仅保留在磁盘上供对照
 
 ## 第三方依赖
 
