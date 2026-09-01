@@ -2,21 +2,38 @@
 #include "logging/logger.h"
 #include <QDir>
 #include <QFileInfo>
+#include <QFile>
+#include <QTextStream>
+#include <QThread>
 
-SqliteRepository::SqliteRepository(QObject *parent) {}
+using burninsys::Logger;
+
+SqliteRepository::SqliteRepository(QObject *parent) : QObject(parent) {}
+
+SqliteRepository::~SqliteRepository()
+{
+    // 顺序不能反：先关连接、再把句柄变量置空（让它释放对连接对象的最后一个引用），
+    // 最后才能 removeDatabase。少掉中间那步，Qt 会打
+    // "QSqlDatabasePrivate::removeDatabase: connection 'xxx' is still in use"
+    // 并且连接其实没被真正回收 —— 热更新反复 addDatabase 时就会撞上重复连接名。
+    if (m_db.isOpen())
+        m_db.close();
+    m_db = QSqlDatabase();
+    QSqlDatabase::removeDatabase(m_connectionName);
+}
 
 void SqliteRepository::open(const QString &dbPath)
 {
     // 用独立连接名，不跟其他线程冲突
-    QString connName = QStringLiteral("repository_%1").arg(reinterpret_cast<quintptr>(this));
-    m_db = QSqlDatabase::addDatabase("QSQLITE", connName);
+    m_connectionName = QStringLiteral("repository_%1").arg(reinterpret_cast<quintptr>(this));
+    m_db = QSqlDatabase::addDatabase("QSQLITE", m_connectionName);
     m_db.setDatabaseName(dbPath);
     m_dbPath = dbPath;
 
     QDir().mkpath(QFileInfo(dbPath).absolutePath());
 
     if (!m_db.open()) {
-        burninsys::Logger::instance().error("SQLite open failed");
+        Logger::instance().error("SQLite open failed");
         return;
     }
 
@@ -29,16 +46,23 @@ void SqliteRepository::open(const QString &dbPath)
     // 建表
     query.exec(R"(
         CREATE TABLE IF NOT EXISTS telemetry (
+            id      INTEGER PRIMARY KEY AUTOINCREMENT,
             ts_ms   INTEGER NOT NULL,
             name    TEXT    NOT NULL,
-            value   REAL    NOT NULL,
+            value   REAL,
             quality TEXT    DEFAULT 'good'
         )
     )");
+    // 三个索引各管一种查询形状：
+    //   idx_telemetry_ts   全量按时间扫
+    //   idx_telemetry_name 按指标名聚合
+    //   idx_name_ts        query() 的 name + 时间区间（复合索引，最常用）
+    query.exec("CREATE INDEX IF NOT EXISTS idx_telemetry_ts   ON telemetry(ts_ms)");
+    query.exec("CREATE INDEX IF NOT EXISTS idx_telemetry_name ON telemetry(name)");
     query.exec("CREATE INDEX IF NOT EXISTS idx_name_ts ON telemetry(name, ts_ms)");
 }
 
-void SqliteRepository::save(const TelemetrySample &sample)
+bool SqliteRepository::tryInsert(const TelemetrySample &sample)
 {
     QSqlQuery query(m_db);
     query.prepare("INSERT INTO telemetry (ts_ms, name, value, quality) VALUES (?, ?, ?, ?)");
@@ -46,7 +70,33 @@ void SqliteRepository::save(const TelemetrySample &sample)
     query.addBindValue(sample.name);
     query.addBindValue(sample.value);
     query.addBindValue(sample.quality);
-    query.exec();
+    return query.exec();
+}
+
+void SqliteRepository::save(const TelemetrySample &sample)
+{
+    // 工业上位机的底线是"数据不能丢"：磁盘满、数据库被别的进程锁住这类故障
+    // 往往几秒内自愈，所以先重试 3 次，仍失败才落到 .cache 文件里等人工回收。
+    // 注意：重试最多睡 1.5s。S8 之后本对象在独立存储线程，这个停顿不会波及采集；
+    // 在那之前它跑在采集线程，是"宁可慢一下也不能丢数据"的取舍。
+    for (int i = 0; i < 3; ++i) {
+        if (tryInsert(sample))
+            return;
+        QThread::msleep(500);
+    }
+    cacheToFile(sample);
+    Logger::instance().warn(QStringLiteral("SQLite write failed after 3 retries, cached to file: %1")
+                                .arg(sample.name));
+}
+
+void SqliteRepository::cacheToFile(const TelemetrySample &sample)
+{
+    QFile f(m_dbPath + ".cache");
+    if (!f.open(QIODevice::Append | QIODevice::Text))
+        return;
+    QTextStream ts(&f);
+    ts << sample.timestampMs << "," << sample.name << ","
+       << sample.value << "," << sample.quality << "\n";
 }
 
 QVector<TelemetrySample> SqliteRepository::query(const QString &name, qint64 fromMs, qint64 toMs) const
@@ -57,6 +107,7 @@ QVector<TelemetrySample> SqliteRepository::query(const QString &name, qint64 fro
     q.addBindValue(name);
     q.addBindValue(fromMs);
     q.addBindValue(toMs);
+    q.exec();
 
     while (q.next()) {
         TelemetrySample s;

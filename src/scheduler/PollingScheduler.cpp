@@ -40,6 +40,7 @@ void PollingScheduler::rebuildTasks(const Config &config)
         return;
     }
     tasksClear();
+    m_anomalyIntervalMs = config.testProfile.anomalySampleIntervalMs;
 
     for(const PollItem &item : config.items)
     {
@@ -101,7 +102,25 @@ void PollingScheduler::addTask(std::unique_ptr<DeviceDriver> driver, int interva
 {
     PollingTask task;
     task.driver = std::move(driver);
-    task.intervalMs = intervalMs;
+    task.normalIntervalMs = intervalMs;
+    // 热更新发生在异常模式期间时，新任务直接按异常间隔起步，
+    // 否则会出现"一半任务 1Hz、一半任务 10Hz"的错位。
+    task.intervalMs = m_anomalyMode ? m_anomalyIntervalMs : intervalMs;
     task.lastPollMs = 0;
     m_tasks.emplace_back(std::move(task));
+}
+
+void PollingScheduler::setAnomalyMode(bool on)
+{
+    if (on == m_anomalyMode)
+        return;   // 边沿触发：只在状态真正翻转时改间隔和打日志
+
+    m_anomalyMode = on;
+    for (PollingTask &task : m_tasks)
+        task.intervalMs = on ? m_anomalyIntervalMs : task.normalIntervalMs;
+
+    Logger::instance().info(QStringLiteral("Anomaly sampling %1: interval -> %2ms")
+                                .arg(on ? "ON" : "OFF")
+                                .arg(on ? m_anomalyIntervalMs
+                                        : (m_tasks.isEmpty() ? 0 : m_tasks.front().normalIntervalMs)));
 }

@@ -79,6 +79,9 @@ TestProfile ConfigLoader::parseTestProfile(const QJsonObject &obj) const
     tp.testDurationHours = obj.value("testDurationHours").toInt(tp.testDurationHours);
     tp.maxMotorTemp = obj.value("maxMotorTemp").toDouble(tp.maxMotorTemp);
     tp.maxVibration = obj.value("maxVibration").toDouble(tp.maxVibration);
+    tp.sampleIntervalMs = obj.value("sampleIntervalMs").toInt(tp.sampleIntervalMs);
+    // 异常高频采样的目标间隔（默认 100ms = 10Hz）。config.json 里不写就用结构体默认值。
+    tp.anomalySampleIntervalMs = obj.value("anomalySampleIntervalMs").toInt(tp.anomalySampleIntervalMs);
     return tp;
 }
 

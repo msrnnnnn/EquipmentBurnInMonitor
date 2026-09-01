@@ -71,7 +71,7 @@ struct TestProfile
     double maxMotorTemp{85.0};       // 合格阈值：最高温度
     double maxVibration{4.5};        // 合格阈值：最大振动（ISO 10816标准）
     int sampleIntervalMs{1000};      // 正常采样间隔
-    int anomalySampleIntervalMs{100}; // 异常采样间隔（10Hz高频）这个还没实现
+    int anomalySampleIntervalMs{100}; // 异常采样间隔（10Hz 高频），由 PollingScheduler::setAnomalyMode 使用
 };
 
 // ── 聚合配置 ──
