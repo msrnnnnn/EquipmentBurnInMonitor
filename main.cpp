@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
         simulator.start(config.endpoint.port);
         simulator.startAutoWalk({
             {5,  18.0, 35.0, 1.0, true},    // temp:  18~35°C,   ±1.0 (float 双寄存器)
-            {7,  800,  1600, 200, false},   // curr:  8~16A,     ±2.0
+            {7,  800,  1600, 300, false},   // curr:  8~16A,     ±3.0（步长 300 raw = ±3A/s：让 current_rate 规则可触发）
             {8,  1400, 1600, 100, false},   // rpm:   1400~1600, ±10
             {9,  200,  500,  50, false},    // vib:   2~5mm/s,   ±0.5
             {10, 2150, 2250, 50, false},    // volt:  215~225V,  ±5

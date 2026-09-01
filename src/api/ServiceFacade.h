@@ -120,6 +120,10 @@ public slots:
     void onConfigUpdated(const Config &config);
     void onMotorCommand();
     void onModeChanged(int mode);
+    // P0-4：设置页 Connect —— 换端点重启会话（异步，立即返回）
+    void onConnectRequested(const QString &host, int port);
+    // P0-4：设置页 Test Profile 应用 —— 更新测试规程，倒计时立即生效
+    void applyTestProfile(const TestProfile &profile);
 private:
     void rebuildRules(const Config &config);
     void refreshUiState();

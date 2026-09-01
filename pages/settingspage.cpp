@@ -20,7 +20,8 @@ SettingsPage::SettingsPage(QWidget *parent)
 
     m_hostInput = new QLineEdit("127.0.0.1");
     m_hostInput->setPlaceholderText("Modbus TCP Host");
-    m_portInput = new QLineEdit("1502");
+    // P0-4/A6：端口默认值与 config.json 对齐（原来 1502，改了不生效的假配置）
+    m_portInput = new QLineEdit("502");
     m_portInput->setPlaceholderText("Modbus TCP Port");
 
     m_connectBtn = new QPushButton("Connect");
@@ -84,15 +85,24 @@ SettingsPage::SettingsPage(QWidget *parent)
     ruleLayout->addRow("Last rule:", m_ruleLabel);
     mainLayout->addWidget(ruleGroup);
 
-    // ── 测试档案 ──
+    // ── 测试档案（P0-4：从匿名 QLineEdit 改为成员，绑定 Apply 按钮）──
     auto *profileGroup = new QGroupBox("Test Profile");
     auto *profileLayout = new QFormLayout(profileGroup);
 
-    profileLayout->addRow("Duration (h):",      new QLineEdit("72"));
-    profileLayout->addRow("Rated RPM:",          new QLineEdit("1500"));
-    profileLayout->addRow("Rated Load (kW):",    new QLineEdit("5.5"));
-    profileLayout->addRow("Max Temp (°C):",      new QLineEdit("85.0"));
-    profileLayout->addRow("Max Vibration (mm/s):", new QLineEdit("10.0"));
+    m_profileDuration = new QLineEdit("72");
+    m_profileRpm = new QLineEdit("1500");
+    m_profileLoad = new QLineEdit("5.5");
+    m_profileMaxTemp = new QLineEdit("85.0");
+    m_profileMaxVib = new QLineEdit("10.0");
+    profileLayout->addRow("Duration (h):",      m_profileDuration);
+    profileLayout->addRow("Rated RPM:",          m_profileRpm);
+    profileLayout->addRow("Rated Load (kW):",    m_profileLoad);
+    profileLayout->addRow("Max Temp (°C):",      m_profileMaxTemp);
+    profileLayout->addRow("Max Vibration (mm/s):", m_profileMaxVib);
+
+    // P0-4：Apply 按钮 —— 演示点：改 Duration 72 → 0.02，倒计时立刻变成 ~1 分钟
+    m_applyProfileBtn = new QPushButton("Apply Profile");
+    profileLayout->addRow("", m_applyProfileBtn);
 
     mainLayout->addWidget(connGroup);
     mainLayout->addWidget(thresholdGroup);
@@ -164,6 +174,18 @@ void SettingsPage::bindServiceFacade(ServiceFacade *facade)
     });
     connect(facade, &ServiceFacade::thresholdWriteMessageChanged, this, [this, facade]() {
         m_writeMessageLabel->setText(facade->thresholdWriteMessage());
+    });
+
+    // P0-4：Apply Profile —— 读五个输入框构造 TestProfile，交给门面生效。
+    // 演示点：Duration 改 0.02（≈72 秒）→ 首页倒计时立刻变为 ~00:01:12 并开始倒数。
+    connect(m_applyProfileBtn, &QPushButton::clicked, this, [this, facade]() {
+        TestProfile p;
+        p.testDurationHours = m_profileDuration->text().toInt();
+        p.ratedRpm = m_profileRpm->text().toInt();
+        p.ratedLoad = m_profileLoad->text().toDouble();
+        p.maxMotorTemp = m_profileMaxTemp->text().toDouble();
+        p.maxVibration = m_profileMaxVib->text().toDouble();
+        facade->applyTestProfile(p);
     });
 
     // 初始补帧（绑定晚于 start()，start 期间的信号已错过）

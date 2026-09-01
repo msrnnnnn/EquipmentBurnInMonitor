@@ -26,6 +26,8 @@ ServiceFacade::ServiceFacade(QObject *parent)
     connect(&m_equipmentData.provider(),&EquipmentDataProvider::thresholdUpdated,this,&ServiceFacade::onThresholdUpdated);
     connect(&m_equipmentData.provider(),&EquipmentDataProvider::motorCommand,this,&ServiceFacade::onMotorCommand);
     connect(&m_equipmentData.provider(),&EquipmentDataProvider::modeChanged,this,&ServiceFacade::onModeChanged);
+    // P0-4：设置页 Connect 按钮（此前 connectRequested 无消费者，是死信号）
+    connect(&m_equipmentData.provider(),&EquipmentDataProvider::connectRequested,this,&ServiceFacade::onConnectRequested);
     // S5：规则触发不只标红，还进状态体系 —— 最近规则名 / 触发计数 / 最近 4 条事件
     connect(&m_ruleEngine, &RuleEngine::ruleTriggered, this, [this](const RuleResult &result) {
         Logger::instance().warn(QStringLiteral("Rule triggered: %1 - %2").arg(result.ruleName, result.message));
@@ -122,7 +124,8 @@ void ServiceFacade::start(const Config &config)
         m_sqliteRepository->open(dbPath);
     });
     QMetaObject::invokeMethod(m_modbusSession,[this,config](){
-        m_modbusSession->start(config.endpoint.host, config.endpoint.port);
+        // P0：timeoutMs 从此真正生效 —— 之前只解析不传递，client 一直用默认 2000ms
+        m_modbusSession->start(config.endpoint.host, config.endpoint.port, config.endpoint.timeoutMs);
     });
     QMetaObject::invokeMethod(m_pollingScheduler, &PollingScheduler::start);
     m_healthMonitor = new HealthMonitor(m_modbusSession,this);
@@ -178,17 +181,24 @@ EquipmentData *ServiceFacade::getEquipmentData()
 
 void ServiceFacade::onSampleReady(const TelemetrySample &sample)
 {
+    // A4 修复：bad 样本是"不可信"数据（解码失败时 value=0），不能把它当 0 刷进实时卡片。
+    // 注意是"只挡卡片"，不是 return —— 落库 / 表格标红 / 计数这些质量标记链路必须保留
+    // （README 语义：bad 数据不静默丢弃，可审计）。
+    const bool good = (sample.quality == "good");
 
-    if (sample.name == "temperature")       m_equipmentData.setTemperature(sample.value);
-    else if (sample.name == "current")      m_equipmentData.setCurrent(sample.value);
-    else if (sample.name == "rpm")          m_equipmentData.setRpm(sample.value);
-    else if (sample.name == "vibration")    m_equipmentData.setVibration(sample.value);
-    else if (sample.name == "voltage")      m_equipmentData.setVoltage(sample.value);
-    else if (sample.name == "power")        m_equipmentData.setPower(sample.value);
+    if (good) {
+        if (sample.name == "temperature")       m_equipmentData.setTemperature(sample.value);
+        else if (sample.name == "current")      m_equipmentData.setCurrent(sample.value);
+        else if (sample.name == "rpm")          m_equipmentData.setRpm(sample.value);
+        else if (sample.name == "vibration")    m_equipmentData.setVibration(sample.value);
+        else if (sample.name == "voltage")      m_equipmentData.setVoltage(sample.value);
+        else if (sample.name == "power")        m_equipmentData.setPower(sample.value);
+        else if (sample.name == "runStatus")    m_equipmentData.setRunStatus(static_cast<int>(sample.value));
+    }
 
     m_pendingRecord["time"] = sample.timestampMs;
     m_pendingRecord[sample.name] = sample.value;
-    if (sample.quality == "bad") {
+    if (!good) {
         m_pendingRecord["anomaly"] = true;
     } else if (!m_pendingRecord.contains("anomaly")) {
         m_pendingRecord["anomaly"] = false;
@@ -196,7 +206,7 @@ void ServiceFacade::onSampleReady(const TelemetrySample &sample)
 
 
     //规则阈值判断（bad 样本不进入规则，但已落库可审计）
-    if (sample.quality == "good") {
+    if (good) {
         m_ruleEngine.evaluate(sample);
         // S5：评估计数与最近评估指标（40节）
         ++m_engineEvaluationCount;
@@ -206,7 +216,7 @@ void ServiceFacade::onSampleReady(const TelemetrySample &sample)
     }
 
 
-    // 6个指标都到齐了才推
+    // 6个指标都到齐了才推（现在含 runStatus 是 9 个 key，size>=8 仍成立）
     if (m_pendingRecord.size() >= 8) {  // time + 6指标 + anomaly = 8
         m_equipmentData.provider().pushSample(m_pendingRecord);
         m_pendingRecord.clear();
@@ -303,6 +313,37 @@ void ServiceFacade::onModeChanged(int mode)
                 Logger::instance().warn(QStringLiteral("Mode command write failed: %1").arg(rsp.error));
         });
     },Qt::QueuedConnection);
+}
+
+// ── P0-4：设置页 Connect —— 换端点重启会话 ──
+// 流程：先 stop 旧会话（连带停掉退避重连定时器，避免"重连到旧地址"与"连新地址"打架），
+// 再用新端点 start。两个动作按顺序投递到会话线程执行。
+// 期间调度器照常 tick，请求快速失败（Not connected），A4 的 quality 门保证卡片不闪 0。
+void ServiceFacade::onConnectRequested(const QString &host, int port)
+{
+    Logger::instance().info(QStringLiteral("Manual connect requested: %1:%2").arg(host).arg(port));
+    if (m_modbusSession == nullptr)
+        return;
+    m_config.endpoint.host = host;
+    m_config.endpoint.port = port;
+    const int timeoutMs = m_config.endpoint.timeoutMs;
+    QMetaObject::invokeMethod(m_modbusSession, &ModbusSession::stop, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(m_modbusSession, [this, host, port, timeoutMs]() {
+        m_modbusSession->start(host, port, timeoutMs);
+    }, Qt::QueuedConnection);
+}
+
+// ── P0-4：设置页 Test Profile 应用 ──
+// 只更新规程 + 发一帧倒计时通知，不 stop/start TestRunner：
+// 在跑的测试会按新时长继续（remainingSeconds 基于 m_profile 实时计算），
+// 峰值历史保留 —— 改时长演示（如 72h → 2 分钟）立即在倒计时上可见。
+void ServiceFacade::applyTestProfile(const TestProfile &profile)
+{
+    m_config.testProfile = profile;
+    m_testRunner.setProfile(profile);
+    if (!m_testRunner.isRunning())
+        m_testRunner.start();       // 测试没在跑时（异常终止后）顺便拉起来
+    emit remainingSecondsChanged(); // 不等 1s tick，立即刷 UI
 }
 
 // ── S5 属性刷新：1s 周期，全部边沿检测 ──

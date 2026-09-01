@@ -43,6 +43,7 @@ private:
     QLabel *m_countdownLabel = nullptr;
     QLabel *m_verdictLabel = nullptr;
     QLabel *m_ruleLabel = nullptr;      // S6：规则状态标签（41节简化版）
+    QLabel *m_runLabel = nullptr;       // P0-1：设备运行状态（从站回读，闭环证据）
 };
 
 #endif // HOMEPAGE_H

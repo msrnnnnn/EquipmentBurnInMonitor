@@ -16,11 +16,13 @@ ModbusSession::ModbusSession(QObject *parent)
             this, &ModbusSession::connectionChanged);
 }
 
-bool ModbusSession::start(const QString &host, int port)
+bool ModbusSession::start(const QString &host, int port, int timeoutMs)
 {
     m_host = host;
     m_port = port;
-    m_client.configure(host, port);
+    // P0：timeoutMs 透传 —— client 会用它做 modbus_set_response_timeout（读写超时）。
+    // 之前这里丢掉了 timeout，config.json 的 endpoint.timeoutMs 改了不生效。
+    m_client.configure(host, port, timeoutMs);
     // 连接是阻塞操作（最长约 2s），client 内部会丢给 IO 线程 —— 这里立即返回。
     // 连接结果通过 connectionChanged 信号通知上层。
     return m_client.start();

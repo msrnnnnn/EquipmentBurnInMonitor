@@ -26,6 +26,12 @@ HomePage::HomePage(QWidget *parent)
     m_ssBtn = new QPushButton("启动");
     m_ssBtn->setStyleSheet("background-color: #2563eb; color: white; font-weight: bold; padding: 6px 16px; border-radius: 4px;");
     statusBar->addWidget(m_ssBtn);
+    // P0-1：设备运行状态 —— 数据来自从站回读（模拟器把启停线圈镜像到寄存器 12），
+    // 点"启动"后这里变绿"运行: 是"，是"控制闭环"当场可见的证据
+    m_runLabel = new QLabel("运行: 否");
+    m_runLabel->setStyleSheet("color: #94a3b8; font-size: 13px; font-weight: bold;");
+    statusBar->addWidget(m_runLabel);
+    statusBar->addSpacing(16);
     statusBar->addWidget(m_statusLabel);
     statusBar->addSpacing(16);
     statusBar->addWidget(m_countLabel);
@@ -195,6 +201,13 @@ void HomePage::bindSensor(EquipmentData *sensor)
         if (m_powerLabel) {
             m_powerLabel->setText(QString::number(sensor->getPower(), 'f', 1) + " kW");
         }
+    });
+    // P0-1：运行状态（从站回读 0/1）
+    connect(sensor, &EquipmentData::runStatusChanged, this, [this, sensor]() {
+        const bool on = sensor->getRunStatus() != 0;
+        m_runLabel->setText(on ? "运行: 是" : "运行: 否");
+        m_runLabel->setStyleSheet(on ? "color: #22c55e; font-size: 13px; font-weight: bold;"
+                                     : "color: #94a3b8; font-size: 13px; font-weight: bold;");
     });
 
     // ── 实时曲线绑定 ──

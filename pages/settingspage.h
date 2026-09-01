@@ -32,6 +32,14 @@ private:
     QPushButton *m_connectBtn = nullptr;
     QComboBox *m_modeCombo = nullptr;
 
+    // ── P0-4：Test Profile 输入（此前是匿名 QLineEdit，改成员才能绑定）──
+    QLineEdit *m_profileDuration = nullptr;   // 时长（小时）
+    QLineEdit *m_profileRpm = nullptr;        // 额定转速
+    QLineEdit *m_profileLoad = nullptr;       // 额定负载
+    QLineEdit *m_profileMaxTemp = nullptr;    // 合格阈值：最高温度
+    QLineEdit *m_profileMaxVib = nullptr;     // 合格阈值：最大振动
+    QPushButton *m_applyProfileBtn = nullptr;
+
     // ── S6 状态标签 ──
     QLabel *m_connStatusLabel = nullptr;   // 连接状态（33节）
     QLabel *m_schedulerLabel = nullptr;    // 调度器启停

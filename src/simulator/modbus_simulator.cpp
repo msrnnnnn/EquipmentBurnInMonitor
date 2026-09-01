@@ -281,8 +281,11 @@ QByteArray ModbusSimulator::buildException(quint16 transaction, quint8 unitId, q
 
 // ── 联动：写地址 0 时镜像到地址 12 ──
 // 意义：地址 0 是启停线圈（config.json motorCommand.address），
-//       地址 12 是运行状态寄存器，点“启动”后读 12 能看到状态变化，验证控制闭环通了
+//       地址 12 是运行状态寄存器，点"启动"后读 12 能看到状态变化，验证控制闭环通了
+// 归一化：0xFF00(ON) → 1，0x0000(OFF) → 0。
+//   为什么归一化：config.json 的 runStatus 采集项用 scale=1.0 直接显示 0/1，
+//   而不是把 65280 这种线圈原始值搬到界面上（那是协议层语义，不是业务语义）。
 void ModbusSimulator::mirrorStartStop(int address, quint16 value)
 {
-    if(address == 0) m_holding[12]=value;
+    if(address == 0) m_holding[12] = (value == 0xFF00) ? 1 : 0;
 }

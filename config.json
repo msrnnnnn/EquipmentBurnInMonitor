@@ -26,7 +26,8 @@
         { "name": "rpm",         "address": 8, "scale": 1.0 },
         { "name": "vibration",   "address": 9, "scale": 0.01 },
         { "name": "voltage",     "address": 10, "scale": 0.1 },
-        { "name": "power",       "address": 11, "scale": 0.01 }
+        { "name": "power",       "address": 11, "scale": 0.01 },
+        { "name": "runStatus",   "address": 12, "scale": 1.0 }
     ],
     "rules": [
         { "name": "temp_high",    "type": "threshold", "metric": "temperature", "threshold": 85.0 },
@@ -35,7 +36,7 @@
         { "name": "vib_high",     "type": "threshold", "metric": "vibration",   "threshold": 4.5 },
         { "name": "voltage_high", "type": "threshold", "metric": "voltage",     "threshold": 420.0 },
         { "name": "power_high",   "type": "threshold", "metric": "power",       "threshold": 8.0 },
-        { "name": "current_rate", "type": "rate",      "metric": "current",     "rateLimit": 8.0, "windowSeconds": 10.0 }
+        { "name": "current_rate", "type": "rate",      "metric": "current",     "rateLimit": 2.5, "windowSeconds": 10.0 }
     ],
     "thresholdRegisters": [
         { "name": "temperature", "address": 100, "scale": 1.0 },

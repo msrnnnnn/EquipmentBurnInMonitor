@@ -12,6 +12,7 @@ double EquipmentData::getRpm() const         { return m_rpm; }
 double EquipmentData::getVibration() const   { return m_vibration; }
 double EquipmentData::getVoltage() const     { return m_voltage; }
 double EquipmentData::getPower() const       { return m_power; }
+int EquipmentData::getRunStatus() const      { return m_runStatus; }
 
 EquipmentDataProvider& EquipmentData::provider()
 {
@@ -62,4 +63,11 @@ void EquipmentData::setPower(double value)
     if (qFuzzyCompare(1.0 + m_power, 1.0 + value)) return;
     m_power = value;
     emit powerChanged();
+}
+
+void EquipmentData::setRunStatus(int value)
+{
+    if (m_runStatus == value) return;   // 0/1 离散值，直接判等即可
+    m_runStatus = value;
+    emit runStatusChanged();
 }
