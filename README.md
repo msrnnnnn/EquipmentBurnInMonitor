@@ -8,14 +8,14 @@
 
 ## 功能特性
 
-- **Modbus TCP 异步采集**：基于 libmodbus（C 源码随项目编译）轮询 6 路寄存器，支持 32 位 IEEE754 浮点（温度）与 16 位整数 × 缩放系数两种解码；请求走 FIFO 队列 + 单飞派发，阻塞调用隔离在专用 IO 线程
-- **内置 Modbus 从站模拟器**：`-s` 一键启动内置 QTcpServer 从站（MBAP 报文解析、03/04/06/10 功能码、寄存器随机游走），无硬件即可跑通全链路
+- **Modbus TCP 异步采集**：基于 libmodbus（C 源码随项目编译）轮询 7 路寄存器（6 遥测 + 运行状态），支持 32 位 IEEE754 浮点（温度）与 16 位整数 × 缩放系数两种解码；请求走 FIFO 队列 + 单飞派发，阻塞调用隔离在专用 IO 线程
+- **内置 Modbus 从站模拟器**：`-s` 一键启动内置 QTcpServer 从站（MBAP 报文解析、03/04/06/10 功能码、寄存器随机游走、启停线圈镜像到运行状态寄存器），无硬件即可跑通全链路
 - **规则引擎**：阈值上下限（`ThresholdRule`）+ 变化率突变（`RateChangeRule`）两类规则，JSON 配置驱动，触发即历史表格异常行标红 + 日志留痕
-- **控制闭环**：UI → Provider → ServiceFacade → ModbusSession 三条下行链路——启停（Coil 0）、阈值批量下发、模式切换；写入均带回调，失败留日志而非静默
-- **工业大屏 UI**：6 指标卡片、QCustomPlot 30 秒滑动窗口实时曲线（异步合并重绘）、7 列历史表格（异常行高亮）、连接状态灯、测试倒计时与 PASS/FAIL
-- **SQLite 持久化**：WAL 模式窄表（`ts_ms/name/value/quality`）毫秒级时间戳，工作线程异步落库，坏数据带质量标记保留不静默丢弃
-- **可靠性**：健康监测（10s 采样龄判定降级/恢复）+ 通信层即时感知断连 + 指数退避自动重连（1s → 60s 封顶）
-- **老化测试判定**：TestRunner 引擎按测试规程倒计时，记录温度/振动峰值，到期自动判定合格与否
+- **控制闭环**：UI → Provider → ServiceFacade → ModbusSession 三条下行链路——启停（Coil 0）、阈值批量下发、模式切换；写入均带回调，失败留日志而非静默；启停命令由从站镜像到运行状态寄存器，UI 显示"运行: 是/否"作为设备侧已执行的证据
+- **工业大屏 UI**：6 指标卡片、QCustomPlot 30 秒滑动窗口实时曲线（异步合并重绘）、7 列历史表格（异常行高亮）、连接状态灯、设备运行状态、规则触发计数、测试倒计时与 PASS/FAIL
+- **SQLite 持久化**：WAL 模式窄表（`id/ts_ms/name/value/quality`）毫秒级时间戳，独立存储线程异步落库；写失败 3 次重试后落 `.cache` 降级文件，数据不丢；坏数据带质量标记保留不静默丢弃
+- **可靠性**：健康监测（10s 采样龄判定降级/恢复）+ 通信层即时感知断连 + 指数退避自动重连（1s → 60s 封顶）+ 异常触发 10Hz 高频采样（温度 >80°C 或电流 >25A 时）
+- **老化测试判定**：TestRunner 引擎按测试规程倒计时，记录温度/振动峰值，到期自动判定合格与否；规程可在设置页实时修改（改时长 → 倒计时立即生效）
 - **配置热更新**：JSON 配置 + QFileSystemWatcher 监听，修改配置实时重建规则与采集任务
 
 ## 技术栈
@@ -113,15 +113,16 @@ UI 按钮（启停/保存阈值/模式）
 ```
 主线程（UI）           MainWindow/Pages、ServiceFacade、RuleEngine、TestRunner、
                        HealthMonitor、MetricsCollector、DataCache
-工作线程 m_workThread  ModbusSession、ModbusTcpClient、PollingScheduler、
-                       SqliteRepository（moveToThread）
+工作线程 m_workThread  ModbusSession、ModbusTcpClient、PollingScheduler（moveToThread）
+存储线程 m_dbThread    SqliteRepository（S8：磁盘 IO 与采集解耦）
 IO 线程（client 内建） ModbusIoWorker（唯一持有 m_ctx）+ libmodbus 阻塞调用
 ```
 
 - **为什么单独开 IO 线程**：libmodbus 的 `modbus_connect` / `modbus_read_registers` 都是同步阻塞。放到专用线程后，设备变慢只会让某个指标的数据晚到，不会拖住整条调度循环——这是异步化的实际收益。
+- **为什么存储再开一线程（S8）**：SQLite 写失败重试最多会睡 1.5s，放采集线程会直接拖住采样节奏；独立线程后磁盘慢只影响落库延迟，采集照常 1Hz/10Hz。
 - **为什么零互斥锁**：`m_ctx` 归 worker 独占且只活在 IO 线程；队列 / `m_inflight` / `m_processing` 只在对象线程访问。正确性由"线程归属"这个结构保证，而不是"记得加锁"的纪律。
 - 跨线程通信全部走信号槽 QueuedConnection / `QMetaObject::invokeMethod`，无裸共享内存。
-- 停止顺序：`BlockingQueuedConnection` 投递 `doDisconnect`（保证 `m_ctx` 一定释放）→ `quit()` + `wait()` → delete。
+- 停止顺序：先 `BlockingQueuedConnection` 停 Session/Scheduler，再 `quit()+wait()` 两个线程；`SqliteRepository` 的析构（`close + removeDatabase`）以 `BlockingQueuedConnection` 投递到存储线程执行——连接在哪创建，就在哪回收。
 - 共享数据用锁：DataCache / MetricsCollector（QReadWriteLock）、Logger（QMutex）。
 
 ## 目录结构
@@ -162,7 +163,7 @@ cmake --build build
 ./EquipmentBurnInMonitor -s       # 启动内置 Modbus 从站模拟器，无需硬件
 ```
 
-`-s` 会先在 `127.0.0.1:502` 拉起内置从站并给 6 个寄存器写入合理初值，再按 1 秒步长做带限随机游走（温度 18~35°C、电流 8~16A、转速 1400~1600rpm 等），功率区间刻意跨过 8.0kW 阈值以便演示告警触发。
+`-s` 会先在 `127.0.0.1:502` 拉起内置从站并给 6 个遥测寄存器写入合理初值，再按 1 秒步长做带限随机游走（温度 18~35°C、电流 8~16A、转速 1400~1600rpm 等），功率区间刻意跨过 8.0kW 阈值、电流步长刻意放大到 ±3A/s，以便演示阈值告警与变化率告警触发。
 
 不使用 `-s` 时，程序启动后连接 `config.json` 中的 `endpoint`（默认 `127.0.0.1:502`），需要真实的 Modbus 设备或第三方模拟器。
 
@@ -183,59 +184,53 @@ cmake --build build
 
 ## 数据存储
 
-- 表 `telemetry(ts_ms, name, value, quality)`，索引 `idx_name_ts(name, ts_ms)`
+- 表 `telemetry(id INTEGER PRIMARY KEY AUTOINCREMENT, ts_ms, name, value, quality)`，三个索引：`idx_telemetry_ts` / `idx_telemetry_name` / `idx_name_ts(name, ts_ms)`
 - WAL 模式：读写不互斥；`busy_timeout=5000`；`synchronous=NORMAL`
+- 写失败降级：`save()` 单次插入失败后重试 2 次（间隔 500ms），仍失败则追加到 `<dbPath>.cache` 文件，宁可慢也不丢数据（S2）
 - 热数据（内存 50 条宽表，UI 表格）与冷数据（SQLite 窄表，全量历史）分层
 
 ## 开发状态
 
 ### 已实现
 
-- [x] Modbus TCP 采集全链路（6 路遥测、坏数据标记、多驱动解码）
+- [x] Modbus TCP 采集全链路（7 路遥测、坏数据标记、多驱动解码）
 - [x] **异步通信架构**（FIFO 队列 + 单飞派发 + IO 线程 + 状态机 + 回调）
 - [x] **内置 Modbus 从站模拟器**（`-s` 一键演示，无硬件跑通全链路）
-- [x] 规则引擎（阈值上下限 + 变化率）与异常标红
-- [x] 控制闭环（启停 / 阈值下发 / 模式切换写寄存器，带回调校验）
-- [x] SQLite 持久化（WAL、异步落库、历史查询 API）
+- [x] 规则引擎（阈值上下限 + 变化率，参数已调至可演示触发）与异常标红
+- [x] 控制闭环（启停 / 阈值下发 / 模式切换写寄存器，带回调校验；**启停回读可见**）
+- [x] **SQLite 加固**（id 主键 + 三索引 + 析构 removeDatabase）+ **降级写入**（重试 + .cache）
+- [x] **三线程模型**（采集 / 存储 / IO 分离，S8）
+- [x] **异常触发高频采样**（温度 >80°C 或电流 >25A → 10Hz，实测边沿切换）
+- [x] **ServiceFacade 状态属性体系**（25 个 Q_PROPERTY + 无参 NOTIFY，S5）
+- [x] **UI 属性绑定**（HomePage/SettingsPage，含规则状态卡 / 阈值快照 / 连接状态，S6）
 - [x] 工业大屏 UI（卡片 / 曲线 / 表格 / 倒计时 / PASS-FAIL）
 - [x] 健康监测 + 通信层断连感知 + 指数退避自动重连
-- [x] 老化测试判定引擎（TestRunner）
+- [x] 老化测试判定引擎（TestRunner），规程可在设置页实时修改
 - [x] 配置加载与热更新（规则 + 采集任务）
 - [x] Logger 单例 + Sink、MetricsCollector、DataCache
 
 ### 路线图（按演示与面试价值排序）
 
-**P0 —— 演示链路修复（半天内，性价比最高）**
-
-1. 启停闭环可见化：`config.json` 增加地址 12（运行状态）采集项，让"写 Coil → 从站执行 → 遥测回读"在 UI 上可证
-2. 变化率规则可演示：当前 `rateLimit 8.0` 大于模拟器游走速度（±2A/s），规则永不触发，需调参或加阶跃序列
-3. 坏数据不刷实时卡片：`onSampleReady` 加 `quality == "good"` 门，断线时卡片不再集体闪 0
-4. 设置页 Test Profile 五个输入框当前无任何绑定（死 UI），连线或移除
-
 **P1 —— 可靠性补齐**
 
-5. SQLite 加固：`id` 自增主键 + 析构 `removeDatabase` + 写失败 3 次重试后落 `.cache` 降级文件
-6. 热更新配置校验：ConfigWatcher 加载失败时拒绝新配置、保持旧配置（当前会静默杀死采集）
-7. `start()/stop()` 幂等化 + `configure()` 跨线程安全（为全量重启热更新铺路）
-8. 表格增量刷新（当前每秒全量重建 350 个 `QTableWidgetItem`）
-9. `pendingRecord` 按 items 名单核对 + 超时兜底（当前按 key 个数凑齐，丢采样会串帧）
-10. TestRunner 三修：bad 数据不入峰值、中途停止判 `aborted`、duration 支持分钟级
+1. 热更新配置校验：ConfigWatcher 加载失败时拒绝新配置、保持旧配置（当前会静默杀死采集）
+2. `start()/stop()` 幂等化 + 热更新走 `stop → configure → start` 全量重启（S9，当前只重建规则与任务）
+3. 表格增量刷新（当前每秒全量重建 350 个 `QTableWidgetItem`）
+4. `pendingRecord` 按 items 名单核对 + 超时兜底（当前按 key 个数凑齐，丢采样会串帧）
+5. TestRunner 三修：bad 数据不入峰值、中途停止判 `aborted`、duration 支持分钟级
+6. 规则触发自动停机联动
 
 **P2 —— 架构与表现层**
 
-11. ServiceFacade 状态属性体系（Q_PROPERTY + 无参 NOTIFY）+ HomePage/SettingsPage 绑定
-12. 独立 SQLite 存储线程（当前与采集同线程，写失败重试会阻塞采集）
-13. 异常触发高频采样（10Hz），`config.h` 已预留 `anomalySampleIntervalMs` 字段但未实现
-14. 曲线双 Y 轴（当前只画温度一条，Y 轴硬编码 20~100）
-15. InputRegister 链路补全或删除死分支（枚举/配置/模拟器都有 04 功能码，client 只有 03）
+7. 曲线双 Y 轴（当前只画温度一条，Y 轴硬编码 20~100）
+8. InputRegister 链路补全或删除死分支（枚举/配置/模拟器都有 04 功能码，client 只有 03）
+9. 阈值写回调成功后回写快照（当前"写前即更"，回调在工作线程不宜跨线程改主线程成员）
+10. 自动化测试最小集（当前编译通过 + 手动演示验证）
 
-> 详细的逐项差距分析与施工方案见 `DEVELOPMENT_PLAN.md`（S1~S9）；源码级缺陷清单与面试追问防线见 `INTERVIEW_READINESS_REPORT.md`。
+> 施工计划与文档出处见 `DEVELOPMENT_PLAN.md`（S1~S9，当前仅 S9 未完成）；源码级缺陷与面试追问防线见 `INTERVIEW_READINESS_REPORT.md`；本分支的设计决策、取舍与 Bug 排查全记录见 `BRANCH_NOTES.md`。
 
 ### 已知限制
 
-- 变化率规则在当前参数下永不触发（见 P0-2）；两帧差值算法本身也偏脆弱，窗口算法更稳妥
-- 设置页 `Connect` 按钮发出的 `connectRequested` 信号无任何消费者（死按钮）；端口默认值 `1502` 与 `config.json` 的 `502` 不一致
-- `config.json` 的 `endpoint.timeoutMs` 已解析但未透传到 `ModbusSession::start`，改配置无效（client 用默认 2000ms）
 - 曲线只画温度一条，Y 轴硬编码 20~100°C
 - 规则触发仅标红 + 日志，无自动停机联动
 - `DiagnosticsReporter` 已实现但未实例化；`DataCache` / `MetricsCollector` 当前只写不读
@@ -253,6 +248,7 @@ cmake --build build
 
 ## 参考文档
 
-- `DEVELOPMENT_PLAN.md`：对照开发文档的差距分析与施工计划（S1~S9）
+- `BRANCH_NOTES.md`：`feat/simulator-async` 分支全记录——每个模块做了什么 / 为什么这么做 / 设计取舍 / 遇到的 Bug 与排查过程 / 实测数据
+- `DEVELOPMENT_PLAN.md`：对照开发文档的差距分析与施工计划（S1~S9，仅 S9 未完成）
 - `INTERVIEW_READINESS_REPORT.md`：源码级评审，按"面试官多快能发现"分级
 - 开发基线文档：《设备老化测试监控系统-50次迭代开发文档》（43 节，位于项目外）
