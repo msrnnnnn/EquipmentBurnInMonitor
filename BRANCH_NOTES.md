@@ -4,7 +4,7 @@
 > 踩过的 Bug 与排查过程、实测验证数据。写给人看——尤其写给 6 个月后的自己。
 >
 > 基线：`ca96461`（fix: 线程竞争/坏数据消费/路径依赖/anomaly标红）
-> 分支终点状态：**S1~S9 全部落地** + P0 演示链路修复 + P1 可靠性补齐（见第 8/8.5 节）。
+> 分支终点状态：**S1~S9 全部落地** + P0 演示链路修复 + P1 可靠性补齐 + 收官批次（B10 功能码链路 / 自动停机 / 单元测试 / 拔网线实验），见第 8/8.5/8.6 节。
 
 ---
 
@@ -17,9 +17,11 @@
 | `ea04cd0` | S4 门面侧 + S5 属性体系 + S6 UI 绑定 + S8 存储线程 | 本次会话主产出 |
 | `99cf9a9` | P0 演示链路修复（启停闭环 / rate 可触发 / 坏数据防闪 / Test Profile 接线 / timeoutMs 透传） | 见第 8 节 |
 | `4682257` | README 对齐 + BRANCH_NOTES.md 初版 | 分支全记录 |
-| （待提交） | P1/S9：全量重启热更新 + 配置校验 + 帧聚合兜底 + TestRunner 三修 + 表格增量 + 曲线双轴 | 见第 8.5 节 |
+| `cf2e817` | S9 全量重启 + B1/B5/B6/B7 + 曲线双轴 | 见第 8.5 节 |
+| `bc9ddbc` | README/BRANCH_NOTES 同步 S9+P1 | S1~S9 收官 |
+| （待提交） | B10 功能码链路 + 阈值写回写 + 自动停机 + 测试最小集 + 拔网线实验 | 见第 8.6 节 |
 
-分三次的原因：**一次提交只讲一件事，diff 可独立审查、可单独回滚**。S1/S2 是用户先写的，单独入库不与异步化混在一起。
+按阶段分批提交：**一次提交只讲一件事，diff 可独立审查、可单独回滚**。S1/S2 是用户先写的，单独入库不与异步化混在一起。
 
 ---
 
@@ -207,6 +209,48 @@ QCustomPlot 第二条曲线挂 `yAxis2`（右轴，电流 0~30A），温度左�
 
 ---
 
+## 8.6 收官批次：B10 功能码链路 + 阈值写回写 + 自动停机 + 测试集 + 拔网线
+
+### B10 四类功能码读链路（"假支持"变真支持）
+- `ModbusDeviceDriver` 加 `setRegisterType/getRegisterType`；三个具体驱动的 `buildReadRequest` 不再写死 HoldingRegister
+- `PollingScheduler::rebuildTasks` 把 config `items[].registerType` 经 `registerTypeFromString` 传给驱动
+- `ModbusIoWorker::performRead` 按类型分发：01 `modbus_read_bits` / 02 `modbus_read_input_bits` / 03 `modbus_read_registers` / 04 `modbus_read_input_registers`
+- **坑**：bit 系列（01/02）的 dest 是 `uint8_t*`，寄存器系列（03/04）是 `uint16_t*`——必须分开缓冲区（第一次编译就报类型错误）
+- **实测**：临时把 temperature 改 `registerType: "input"` → 采样 6 条、值 0（模拟器 input 寄存器空）、quality 全 good、无错误日志 → 04 链路真通
+- 诚实边界：01/02 链路已通，但驱动解码层只服务寄存器格式（bit 采集项标 bad）
+
+### 阈值写成功才回写快照（P2 遗留 2 号）
+- 6 个写回调都跑在**工作线程且串行**（client 单飞），用 `std::shared_ptr<QVector<bool>>` 共享数组统计结果无竞争
+- 全部收齐后 `invokeMethod(this, ..., QueuedConnection)` **回主线程**更新快照——跨线程改主线程成员必须投递
+- 全成功 → 快照 + "updated at HH:MM:SS"；任一失败 → "Threshold write failed, snapshot kept"（保留旧快照，不撒谎）
+- **顺带修了 S5 的一个缺口**：`setThresholdSnapshot` 原来漏设 `m_powerThreshold`，设置页 Power 快照永远 "-"
+
+### 规则自动停机联动（P2 遗留 3 号）
+- `RuleConfig.autoStop`（config 解析）+ `configure` 收集 `m_autoStopRules`
+- ruleTriggered lambda：`m_isRunning && m_autoStopRules.contains(name)` → 翻转状态 + `writeMotorStop()`（写停机线圈）
+- **m_isRunning 守卫**：规则每秒触发时只停机一次，不刷屏
+- **实测**：临时 main.cpp 3 秒后模拟点启动（验证后删除）→ temp_high(22) 触发 → `Auto-stop triggered by rule: temp_high` 只出现一次 → runStatus 分布 0×10/1×1（启动回读 1、停机回读 0）——**"启动→回读→超限→自动停机→回读"完整闭环**
+- 配置默认：temp_high / current_high 开 autoStop（安全规则），power/vib 只告警
+
+### 单元测试最小集（Qt Test）
+- `tests/tst_main.cpp`：7 组用例 9 断言——阈值/变化率规则、引擎计数与信号、TestRunner 时长/bad 过滤/abort、ConfigLoader 解析（timeoutMs/registerType/autoStop）
+- CMake：`unit_tests` target + `enable_testing()/add_test()`，`ctest` 可跑
+- **坑 1**：测试 target 的头文件必须显式列出，否则 AUTOMOC 漏掉 Q_OBJECT 基类（Rule）的 moc → 链接 undefined reference（主程序列了所有 .h 所以没踩过）
+- **坑 2**：bit 读取 dest 类型不同（见上）
+- **坑 3**：Windows 上 unit_tests.exe 直接跑退出码 127 = 缺 `Qt6Test.dll`，要把 Qt bin 加 PATH；Git Bash 管道吞 Qt console 输出（PowerShell 才能捕获）
+- **最大收获**：测试抓到一个真 bug（见 Bug 11）
+
+### 拔网线实验（timeoutMs 分层验收）
+用 Python 静默服务器（accept 但不响应）模拟"设备挂死"，实测时间线：
+```
+connect success → (2s 响应超时, timeoutMs=2000 生效) → read failed →
+断连感知 → Reconnect scheduled 1000ms → Attempt + connect success（TCP 通）→ 又超时……
+```
+- **app 全程存活、UI 不卡**（异步化的直接收益，量化证据）
+- **退避一直是 1000ms 而非增长**：TCP connect 每次都成功（服务器在监听），退避只在 connect 失败才翻倍——**"响应超时"与"连接退避"是两个独立分层**，行为符合设计
+
+---
+
 ## 9. Bug 记录与排查（按时间线）
 
 ### Bug 1：`std::vector` 没有 `isEmpty()`（编译错误）
@@ -265,6 +309,23 @@ QMetaObject::invokeMethod(m_sqliteRepository, [..]{ delete ..; }, Qt::BlockingQu
 **修法**：改 `toDouble()`，≥1 小时走 `testDurationHours`，<1 小时折算 `testDurationMinutes`（B7 的分钟级字段正好用上）。
 **教训**：**输入解析要按输入域的语义选类型**——用户能敲小数的框就别用 toInt。
 
+### Bug 11：RateChangeRule 首帧判断——时间戳为 0 时永远算不出 rate（单元测试抓到）
+**现象**：单元测试 `rateTrigger` 失败：`evaluate(b).triggered` 返回 FALSE。
+**根因**：首帧判断用 `if (m_lastTimestamp == 0)`，但首帧的 `timestampMs` 恰好是 0（测试/回放数据）→ 第二次评估仍命中"首帧"分支 → 只记录不计算。真实场景时间戳是 epoch 毫秒（永不为 0），所以这个 bug 从没在生产路径暴露——**测试用构造数据把它炸出来了**。
+**修法**：加独立 `m_hasBaseline` 标志，不再用时间戳当哨兵。
+**教训**：**"是否首帧"这类状态不能用数据本身当哨兵**，数据范围可能覆盖哨兵值；测试的价值恰恰在于构造"生产里不会出现的输入"。
+
+### Bug 12：AUTOMOC 对 Q_OBJECT 基类的 moc 依赖头文件列出
+**现象**：`unit_tests` 链接失败：`undefined reference to Rule::qt_metacast/staticMetaObject/vtable`。
+**根因**：测试 target 的源码列表只列了 .cpp；AUTOMOC 只 moc 了派生类（thresholdrule 等），Q_OBJECT 基类 Rule.h 没进 target 源码列表就没生成 moc。主程序没踩过是因为 PROJECT_SOURCES 显式列了全部 .h。
+**修法**：TEST_SOURCES 补列全部相关头文件。
+**教训**：**新建 CMake target 时，含 Q_OBJECT 的头文件要显式列入源码列表**，别只列 .cpp。
+
+### Bug 13：Windows 上 Qt Test 的两连坑（运行环境）
+**现象**：① `unit_tests.exe` 直接跑退出码 127（缺 Qt6Test.dll，Qt bin 不在 PATH）；② Git Bash 管道/重定向吞掉了 Qt console 输出（PowerShell 才能捕获）。
+**处理**：加 PATH 跑；用 PowerShell 捕获输出。
+**教训**：**Windows 下测 Qt 程序，环境变量与 shell 差异会先于业务问题找上门**——先确认 DLL 路径与输出通道，再谈测试结果。
+
 ---
 
 ## 10. 实测验证记录（数字全部来自本次运行）
@@ -281,17 +342,18 @@ QMetaObject::invokeMethod(m_sqliteRepository, [..]{ delete ..; }, Qt::BlockingQu
 | **S9 全量重启** | 运行中改 config（power_high 8.0→9.5） | `full reload (stop -> start)` + 再次 `connect success`，**无死锁无崩溃** |
 | **B1 拒绝坏配置** | 写坏 JSON 到 config.json | `Config reload rejected ... keeping current config running`，进程存活、采集继续 |
 | S9 恢复 | 恢复 config 后再跑 | 采样连续（约 20s × 7 指标 = 140 行落库） |
+| **单元测试** | `unit_tests.exe`（Qt Test，Qt bin 加 PATH） | **9/9 全绿**；首版 8/9，抓到 Bug 11 |
+| **B10 04 链路** | temperature 临时改 `registerType: input` | 采样 6 条、值 0、quality 全 good、无错误日志 |
+| **自动停机** | temp_high 阈值临时降 22 + 3 秒模拟点启动 | `Auto-stop triggered by rule: temp_high` 仅 1 次；runStatus 0×10/1×1（启动回读 1、停机回读 0） |
+| **拔网线** | Python 静默服务器（accept 不响应） | 2s 响应超时 → 断连感知 → 1s 重连循环；**app 全程存活**；退避不增长（TCP connect 成功），符合"响应超时/连接退避分层"设计 |
 
 ---
 
 ## 11. 遗留事项（未做，需决策）
 
-1. **InputRegister 链路补全或删死分支**：枚举/配置/模拟器都有 04 功能码，client 的 `performRead` 只有 03（断头链）
-2. 阈值写"成功才回写快照"（当前写前即更，回调在工作线程有跨线程问题；可试 `QMetaObject::invokeMethod(this, ..., QueuedConnection)` 回主线程更新）
-3. 规则触发自动停机联动（超阈值自动写停机线圈）
-4. 自动化测试最小集（Qt Test 框架起一个冒烟用例）
-5. `endpoint.timeoutMs` 已透传，但 connect 超时与响应超时的分层验收实验未做（拔网线时间线）
-6. `a.h/a.cpp` 异步草稿的去留（已排除出构建，占磁盘）
+1. **`a.h/a.cpp` 异步草稿的去留**（已排除出构建，占磁盘，需用户拍板删或保留）
+2. 自动化测试扩充：当前 9 用例只覆盖纯逻辑；ServiceFacade/调度器的线程级用例未做（需 QTest 起事件循环 + 线程编排，工作量大）
+3. 01/02（bit）功能码链路已通但驱动解码只支持寄存器格式——若要支持 bit 采集项需配套解码器（当前标 bad 属诚实失败）
 
 ---
 
