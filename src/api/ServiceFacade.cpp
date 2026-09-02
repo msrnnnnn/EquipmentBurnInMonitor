@@ -452,6 +452,11 @@ void ServiceFacade::logMetricsSummary()
                      .arg(m.count);
     }
     Logger::instance().info(QStringLiteral("Metrics summary: %1").arg(parts.join(' ')));
+    // L4 子集：积压可观测 —— stale 丢弃计数（0 表示从未有读请求因排队过久被作废）
+    if (m_modbusSession && m_modbusSession->droppedStale() > 0) {
+        Logger::instance().info(QStringLiteral("Metrics summary: dropped_stale=%1")
+                                    .arg(m_modbusSession->droppedStale()));
+    }
 }
 
 // ── S5 属性刷新：1s 周期，全部边沿检测 ──

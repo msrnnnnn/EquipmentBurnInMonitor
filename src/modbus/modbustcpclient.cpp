@@ -1,5 +1,6 @@
 #include "modbustcpclient.h"
 #include "logging/logger.h"
+#include <QDateTime>
 #include <QVector>
 #include <QMetaObject>
 #include <QThread>
@@ -152,7 +153,10 @@ ModbusResponse ModbusIoWorker::performWrite(const ModbusWriteRequest &req)
 // ModbusTcpClient —— 异步调度层，活在对象线程
 // ═══════════════════════════════════════════════════════════════════════
 
-ModbusTcpClient::ModbusTcpClient(QObject *parent) : QObject(parent) {}
+ModbusTcpClient::ModbusTcpClient(QObject *parent, qint64 staleThresholdMs)
+    : QObject(parent), m_staleThresholdMs(staleThresholdMs)
+{
+}
 
 ModbusTcpClient::~ModbusTcpClient()
 {
@@ -289,6 +293,7 @@ void ModbusTcpClient::enqueue(PendingRequest &&pr)
 {
     if (m_stopped)
         return;
+    pr.enqueuedAtMs = QDateTime::currentMSecsSinceEpoch();   // L2：入队即记时间戳
     m_queue.push_back(std::move(pr));
     dispatchNext();
 }
@@ -297,6 +302,29 @@ void ModbusTcpClient::dispatchNext()
 {
     if (m_processing || m_queue.empty())
         return;
+
+    // L2（背压审查）：派发前清理队头过期的【读】请求。
+    // 为什么只查队头：队列 FIFO 有序，队头是等最久的，它不超龄则后面全不超龄。
+    // 为什么跳过写请求：启停/阈值写是低频命令，等几秒也必须执行——丢写比丢读严重，
+    // 这是不拆队列前提下对"读写语义不同"的最小承认（L1 的双队列方案先不做）。
+    // 过期走失败回调 + linkBroken=false：数据过期≠链路错误，不能触发降级重连风暴
+    // （与 L0 的"丢弃伴随降级"是刻意区别）。原则仍是：请求可以丢，回调不能吞。
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    while (!m_queue.empty()) {
+        PendingRequest &front = m_queue.front();
+        if (front.isWrite || now - front.enqueuedAtMs <= m_staleThresholdMs)
+            break;
+        ++m_droppedStale;
+        Logger::instance().warn(QStringLiteral("Dropped stale read request, age=%1ms")
+                                    .arg(now - front.enqueuedAtMs));
+        auto pr = std::move(front);
+        m_queue.pop_front();
+        if (pr.cb)
+            pr.cb(ModbusResponse{false, {}, "Dropped: stale", false});
+    }
+    if (m_queue.empty())
+        return;
+
     if (m_state.load() != LinkState::Connected)
         return;   // 断连期间不派发，请求留在队列里等重连成功
 

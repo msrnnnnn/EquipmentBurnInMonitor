@@ -30,6 +30,9 @@ public:
 
     bool isConnected() const { return m_client.isConnected(); }
 
+    // L4 子集：透传 client 的 stale 丢弃计数（门面 60s 摘要日志消费）
+    int droppedStale() const { return m_client.droppedStale(); }
+
 signals:
     // 透传 client 的信号：上层（main.cpp / ServiceFacade）的接口一行不用改
     void connectionChanged(bool connected);

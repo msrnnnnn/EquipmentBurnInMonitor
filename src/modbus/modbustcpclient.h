@@ -79,8 +79,13 @@ class ModbusTcpClient : public QObject
 {
     Q_OBJECT
 public:
-    explicit ModbusTcpClient(QObject *parent = nullptr);
+    // L2（背压审查）：staleThresholdMs —— 读请求在队列里等待超过该阈值视为过期，
+    // 派发前直接作废（失败回调返回，不算链路错误）。构造参数带默认值，调用方无需改动。
+    explicit ModbusTcpClient(QObject *parent = nullptr, qint64 staleThresholdMs = 5000);
     ~ModbusTcpClient() override;
+
+    // L4 子集：被 stale 丢弃的读请求计数（门面 60s 摘要日志消费）
+    int droppedStale() const { return m_droppedStale.load(); }
 
     // ── 生命周期三段 ──
     void configure(const QString &host, int port, int timeoutMs = 2000);  // 只存参数，不做 IO
@@ -113,6 +118,7 @@ private:
         ModbusReadRequest  readReq;                 // ② 读请求（unitId / 地址 / 数量）
         ModbusWriteRequest writeReq;                //    写请求（unitId / 地址 / 值）
         std::function<void(ModbusResponse)> cb;     // ③ 回调（调用方传的 lambda）
+        qint64 enqueuedAtMs{0};                     // ④ 入队时间戳（L2 stale 判定的依据）
     };
 
     // 单飞循环三件套 —— 全部只在【对象线程】执行，所以队列无需加锁
@@ -140,6 +146,8 @@ private:
     QString m_host;
     int m_port{502};
     int m_timeoutMs{2000};
+    qint64 m_staleThresholdMs{5000};          // L2：读请求等待上限
+    std::atomic<int> m_droppedStale{0};       // L4 子集：stale 丢弃计数（跨线程读）
 };
 
 #endif // MODBUSTCPCLIENT_H
