@@ -330,12 +330,21 @@ void ModbusTcpClient::onIoFinished(ModbusResponse rsp)
 
     // 连接级错误才降级：状态转回 Disconnected 并通知上层（Session 的退避重连由此触发），
     // 同时清空队列 —— 断线期间攒下的请求已经过期，恢复后重发一遍旧的没有意义。
+    // L0 修复（背压审查）：清队列前逐个以失败响应回调，不能静默吞掉排队请求的 cb ——
+    // 调度器的 pending 标志只靠回调复位（PollingScheduler.cpp:90），回调被吞 =
+    // pending 永久卡死 → 断线后该指标永久停采，重连成功也不恢复。
+    // 原则：请求可以丢，回调不能吞。
     if (!rsp.success && rsp.linkBroken) {
         if (m_state.load() == LinkState::Connected) {
             m_state.store(LinkState::Disconnected);
             emit connectionChanged(false);
         }
-        m_queue.clear();
+        while (!m_queue.empty()) {
+            auto pr = std::move(m_queue.front());
+            m_queue.pop_front();
+            if (pr.cb)
+                pr.cb(ModbusResponse{false, {}, "Dropped: link reset", true});
+        }
     }
 
     if (!m_stopped && cb)
