@@ -9,7 +9,7 @@
 ## 功能特性
 
 - **Modbus TCP 异步采集**：基于 libmodbus（C 源码随项目编译）轮询 7 路寄存器（6 遥测 + 运行状态），支持 32 位 IEEE754 浮点（温度）与 16 位整数 × 缩放系数两种解码；请求走 FIFO 队列 + 单飞派发，阻塞调用隔离在专用 IO 线程
-- **内置 Modbus 从站模拟器**：`-s` 一键启动内置 QTcpServer 从站（MBAP 报文解析、03/04/06/10 功能码、寄存器随机游走、启停线圈镜像到运行状态寄存器），无硬件即可跑通全链路
+- **内置 Modbus 从站模拟器**：`-s` 或 `config.json` 的 `"simulate": true` 启动内置 QTcpServer 从站（MBAP 报文解析、03/04/06/10 功能码、寄存器随机游走、启停线圈镜像到运行状态寄存器），无硬件即可跑通全链路
 - **规则引擎**：阈值上下限（`ThresholdRule`）+ 变化率突变（`RateChangeRule`）两类规则，JSON 配置驱动，触发即历史表格异常行标红 + 日志留痕
 - **控制闭环**：UI → Provider → ServiceFacade → ModbusSession 三条下行链路——启停（Coil 0）、阈值批量下发、模式切换；写入均带回调，失败留日志而非静默；启停命令由从站镜像到运行状态寄存器，UI 显示"运行: 是/否"作为设备侧已执行的证据
 - **工业大屏 UI**：6 指标卡片、QCustomPlot 30 秒滑动窗口实时曲线（异步合并重绘）、7 列历史表格（异常行高亮）、连接状态灯、设备运行状态、规则触发计数、测试倒计时与 PASS/FAIL
@@ -41,7 +41,7 @@
 数据层      DataCache（最新值快照）/ SqliteRepository（历史）
 诊断层      HealthMonitor / DiagnosticsReporter / MetricsCollector
 配置层      ConfigLoader / ConfigWatcher
-模拟层      ModbusSimulator（内置从站，仅 -s 启用）
+模拟层      ModbusSimulator（内置从站，-s / simulate:true 启用）
 基础设施     Logger（单例 + Sink）
 ```
 
@@ -129,7 +129,7 @@ IO 线程（client 内建） ModbusIoWorker（唯一持有 m_ctx）+ libmodbus �
 
 ```
 EquipmentBurnInMonitor/
-├── main.cpp                    # 入口：日志 → 配置 → 模拟器(-s) → ServiceFacade → MainWindow
+├── main.cpp                    # 入口：日志 → 配置 → 模拟器(-s/simulate) → ServiceFacade → MainWindow
 ├── mainwindow.{h,cpp}          # 导航壳（QListWidget + QStackedWidget + QSplitter）
 ├── equipmentdata.{h,cpp}       # EquipmentData（Q_PROPERTY 遥测模型）
 ├── equipmentdataprovider.{h,cpp} # Provider（历史缓存 + 信号桥）
@@ -146,7 +146,7 @@ EquipmentBurnInMonitor/
 │   ├── modbus/                 # ModbusTypes / ModbusTcpClient / ModbusIoWorker / ModbusSession
 │   ├── rules/                  # Rule / RuleEngine / ThresholdRule / RateChangeRule
 │   ├── scheduler/              # PollingScheduler
-│   ├── simulator/              # ModbusSimulator（内置从站，-s 启用）
+│   ├── simulator/              # ModbusSimulator（内置从站，-s / simulate:true 启用）
 │   └── test/                   # TestRunner
 └── third_party/                # libmodbus 3.2.0（C 源码）/ QCustomPlot
 ```
@@ -197,7 +197,7 @@ cmake --build build
 
 - [x] Modbus TCP 采集全链路（7 路遥测、坏数据标记、多驱动解码）
 - [x] **异步通信架构**（FIFO 队列 + 单飞派发 + IO 线程 + 状态机 + 回调）
-- [x] **内置 Modbus 从站模拟器**（`-s` 一键演示，无硬件跑通全链路）
+- [x] **内置 Modbus 从站模拟器**（`-s` / `simulate: true` 一键演示，无硬件跑通全链路）
 - [x] 规则引擎（阈值上下限 + 变化率，参数已调至可演示触发）与异常标红
 - [x] 控制闭环（启停 / 阈值下发 / 模式切换写寄存器，带回调校验；**启停回读可见**）
 - [x] **SQLite 加固**（id 主键 + 三索引 + 析构 removeDatabase）+ **降级写入**（重试 + .cache）
