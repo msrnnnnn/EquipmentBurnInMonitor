@@ -35,10 +35,10 @@ int main(int argc, char *argv[])
         Logger::instance().info("Config loaded successfully");
     }
 
-    // 内置模拟器（-s 启用，在 ServiceFacade 连接之前启动）
+    // 内置模拟器（-s 或 config.simulate=true 启用，在 ServiceFacade 连接之前启动）
     // 模拟器负责：MBAP 收发 + 寄存器读写 + 随机游走（内聚）
     ModbusSimulator simulator;
-    if (parser.isSet(simulateOpt)) {
+    if (parser.isSet(simulateOpt) || config.simulate) {
         // 种子初始值：先给每个寄存器一个合理初值，避免启动头 1~2 秒读到 0 触发假告警
         // 对齐 config.json items[] 的 address 和 scale：
         //   temperature address=5  scale=1.0   → 25.0°C（浮点双寄存器，用 setFloatRegister 写）

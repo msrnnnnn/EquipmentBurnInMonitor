@@ -79,6 +79,10 @@ struct TestProfile
 // ── 聚合配置 ──
 struct Config
 {
+    // 内置模拟器开关：true = 启动即起模拟器（无硬件演示/开发调试）。
+    // 设计演进：原来只有命令行 -s，Qt Creator/IDE 传参不便且各 kit 独立易丢；
+    // 改为配置驱动后，改 config.json 一个字段即可切换模拟/真实，命令行 -s 保留兜底。
+    bool simulate{false};
     ModbusEndpoint endpoint;
     MotorCommand motorCommand;
     ModeCommand modeCommand;

@@ -26,6 +26,7 @@ Config ConfigLoader::loadFromFile(const QString &path)
 Config ConfigLoader::loadFromJson(const QJsonObject &obj)
 {
     Config cfg;
+    cfg.simulate = obj.value("simulate").toBool(cfg.simulate);
     if (obj.contains("endpoint"))
         cfg.endpoint = parseEndpoint(obj.value("endpoint").toObject());
     if (obj.contains("motorCommand"))
