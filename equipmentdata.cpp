@@ -20,7 +20,7 @@ EquipmentDataProvider& EquipmentData::provider()
 }
 
 // ── setter：变化检查 → 赋值 → 发信号 ──
-// [面试重点] 变化检查避免无意义刷新：工业上位机跑几天，不做过滤会疯狂刷UI
+// 变化检查避免无意义刷新：工业上位机跑几天，不做过滤会疯狂刷UI
 // qFuzzyCompare 不能直接比较含0.0的值（文档明确说不可靠），加1.0偏移规避
 
 void EquipmentData::setTemperature(double value)

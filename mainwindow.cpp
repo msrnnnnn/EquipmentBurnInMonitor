@@ -124,7 +124,7 @@ void MainWindow::setupUI()
     m_navList->setCurrentRow(0);
 }
 
-// [面试重点] 传递者模式：MainWindow只负责把sensor转交给HomePage，自己不处理数据
+// 传递者模式：MainWindow只负责把sensor转交给HomePage，自己不处理数据
 // 保持MainWindow简洁——它只管导航布局，不插手数据流
 void MainWindow::setSensor(EquipmentData *sensor)
 {

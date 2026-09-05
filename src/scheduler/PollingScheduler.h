@@ -33,7 +33,7 @@ signals:
 public slots:
     void rebuildTasks(const Config &config);
     // 异常高频采样：on=true 把所有任务的间隔压到 m_anomalyIntervalMs，false 还原成配置值。
-    // 必须由【本对象所在线程】调用（调用方用 invokeMethod 投递过来）。
+    // 必须由本对象所在线程调用（调用方用 invokeMethod 投递过来）。
     void setAnomalyMode(bool on);
 private slots:
     void tick();

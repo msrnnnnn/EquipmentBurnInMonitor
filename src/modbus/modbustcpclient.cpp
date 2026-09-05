@@ -41,7 +41,7 @@ bool ModbusIoWorker::doConnect(const QString &host, int port, int timeoutMs)
         return false;
     }
 
-    // 【libmodbus API】响应超时：设备无响应时最多等这么久，避免 IO 线程被无限拖住
+    // 响应超时：设备无响应时最多等这么久，避免 IO 线程被无限拖住
     modbus_set_response_timeout(m_ctx, static_cast<uint32_t>(timeoutMs / 1000),
                                 static_cast<uint32_t>((timeoutMs % 1000) * 1000));
 
@@ -178,7 +178,7 @@ bool ModbusTcpClient::start()
     m_stopped = false;
     m_state.store(LinkState::Disconnected);
 
-    // 【Qt API】建 IO 线程并把 worker 搬过去。
+    // 建 IO 线程并把 worker 搬过去。
     // 注意：worker 不能有 parent（有 parent 的对象不允许 moveToThread），
     // 所以两个对象都在 stop() 里手动释放。
     m_ioThread = new QThread;
@@ -201,7 +201,7 @@ void ModbusTcpClient::stop()
     m_processing = false;
     m_connectCb = nullptr;
 
-    // 【Qt API】阻塞投递：等 IO 线程把手上的活干完、并把 doDisconnect 执行完。
+    // 阻塞投递：等 IO 线程把手上的活干完、并把 doDisconnect 执行完。
     // 用 BlockingQueuedConnection 是为了"保证 m_ctx 一定被释放"—— quit() 不保证
     // 队列里剩余事件被执行，而阻塞投递会一直等到它执行完。
     // 代价：若 IO 正卡在请求超时，这里最多等一个超时周期 —— 只在关闭时发生一次。
@@ -303,7 +303,7 @@ void ModbusTcpClient::dispatchNext()
     if (m_processing || m_queue.empty())
         return;
 
-    // L2（背压审查）：派发前清理队头过期的【读】请求。
+    // L2（背压审查）：派发前清理队头过期的读请求。
     // 为什么只查队头：队列 FIFO 有序，队头是等最久的，它不超龄则后面全不超龄。
     // 为什么跳过写请求：启停/阈值写是低频命令，等几秒也必须执行——丢写比丢读严重，
     // 这是不拆队列前提下对"读写语义不同"的最小承认（L1 的双队列方案先不做）。

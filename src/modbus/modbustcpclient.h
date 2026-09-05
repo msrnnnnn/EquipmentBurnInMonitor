@@ -1,16 +1,16 @@
 #ifndef MODBUSTCPCLIENT_H
 #define MODBUSTCPCLIENT_H
 
-#include <QObject>       // 【Qt官方】信号槽 / invokeMethod / 线程归属能力
-#include <QThread>       // 【Qt官方】IO 线程载体
+#include <QObject>
+#include <QThread>
 #include <QString>
-#include <deque>         // 【标准库】双端队列：装待执行请求
-#include <functional>    // 【标准库】std::function：装"回调函数"的盒子
-#include <atomic>        // 【标准库】原子变量：跨线程免锁读写
+#include <deque>
+#include <functional>
+#include <atomic>
 #include "ModbusTypes.h"
 
 extern "C" {
-#include "modbus.h"      // 【第三方库 libmodbus】C 接口
+#include "modbus.h"      // libmodbus C 接口
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -36,7 +36,7 @@ enum class LinkState {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ModbusIoWorker —— IO 线程的"执行者"，【唯一持有 m_ctx 的对象】
+// ModbusIoWorker —— IO 线程的"执行者"，唯一持有 m_ctx 的对象
 //
 // 为什么由它持有 m_ctx 而不是 client：
 //   让"封装边界"与"线程边界"重合。worker 只活在 IO 线程，m_ctx 作为它的成员
@@ -52,7 +52,7 @@ public:
     explicit ModbusIoWorker(QObject *parent = nullptr);
     ~ModbusIoWorker() override;
 
-    // 【以下四个方法只在 IO 线程调用】——只有它们访问 m_ctx，其余方法一概不碰。
+    // 以下四个方法只在 IO 线程调用——只有它们访问 m_ctx，其余方法一概不碰。
     // 这个约束由结构保证（本对象只活在 IO 线程），Q_ASSERT 仅作 Debug 兜底。
     bool doConnect(const QString &host, int port, int timeoutMs);
     void doDisconnect();
@@ -98,7 +98,7 @@ public:
     bool isConnected() const { return m_state.load() == LinkState::Connected; }
     LinkState state() const { return m_state.load(); }
 
-    // ── 异步读写：入队后立即返回；cb 在【对象线程】被调用 ──
+    // ── 异步读写：入队后立即返回；cb 在对象线程被调用 ──
     // 为什么不是"返回结果"：返回值 = 调用方必须等；回调 = 调用方先走，结果到了被叫回来。
     void readRegisters(const ModbusReadRequest &req,
                        std::function<void(ModbusResponse)> cb);
@@ -121,7 +121,7 @@ private:
         qint64 enqueuedAtMs{0};                     // ④ 入队时间戳（L2 stale 判定的依据）
     };
 
-    // 单飞循环三件套 —— 全部只在【对象线程】执行，所以队列无需加锁
+    // 单飞循环三件套 —— 全部只在对象线程执行，所以队列无需加锁
     void enqueue(PendingRequest &&pr);        // 入队尾 → 试着派发
     void dispatchNext();                      // 队列非空且无在飞 → 整包搬到 m_inflight → 投给 IO 线程
     void onIoFinished(ModbusResponse rsp);    // IO 完成 → 取回 cb 调用 → 再派发下一个

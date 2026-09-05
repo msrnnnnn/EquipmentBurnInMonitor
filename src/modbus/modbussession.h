@@ -24,7 +24,7 @@ public:
     bool start(const QString &host, int port, int timeoutMs = 2000);   // 内部异步连接，调用后立即返回
     void stop();
 
-    // 异步读写：cb 在【本对象线程】被调用（由 client 保证）
+    // 异步读写：cb 在本对象线程被调用（由 client 保证）
     void send(const ModbusReadRequest &req, std::function<void(ModbusResponse)> cb);
     void write(const ModbusWriteRequest &req, std::function<void(ModbusResponse)> cb);
 

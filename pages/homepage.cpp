@@ -131,7 +131,7 @@ HomePage::HomePage(QWidget *parent)
     root->addWidget(m_historyTable, 1);
     m_chart = new QCustomPlot(this);
 
-    // [面试重点] QCustomPlot 实时曲线范式：滑动窗口 + 异步重绘
+    // QCustomPlot 实时曲线范式：滑动窗口 + 异步重绘
     // X轴用时间戳（秒），QCPAxisTickerDateTime 自动格式化为 HH:mm:ss
     auto dateTicker = QSharedPointer<QCPAxisTickerDateTime>(new QCPAxisTickerDateTime);
     dateTicker->setDateTimeFormat("HH:mm:ss");
@@ -178,7 +178,7 @@ HomePage::HomePage(QWidget *parent)
     root->addWidget(m_chart, 1);
 }
 
-// [面试重点] 信号槽绑定：观察者模式的Qt实现
+// 信号槽绑定：观察者模式的Qt实现
 // 用lambda而非单独槽函数：6个指标逻辑相同，lambda内联更简洁
 // connect的第3参数this：自动管理生命周期，HomePage销毁时自动断开连接
 void HomePage::bindSensor(EquipmentData *sensor)
@@ -225,7 +225,7 @@ void HomePage::bindSensor(EquipmentData *sensor)
     });
 
     // ── 实时曲线绑定 ──
-    // [面试重点] QCustomPlot 实时追加范式：addData → removeDataBefore → 滑动X轴 → replot
+    // QCustomPlot 实时追加范式：addData → removeDataBefore → 滑动X轴 → replot
     // rpQueuedReplot 异步重绘，不阻塞信号处理，高频数据时比同步replot高效
     connect(sensor, &EquipmentData::temperatureChanged, this, [this, sensor]() {
         const double now = QDateTime::currentSecsSinceEpoch();

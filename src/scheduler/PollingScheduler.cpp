@@ -80,10 +80,10 @@ void PollingScheduler::tick()
         // 驱动对象。QPointer 会在对象销毁后自动置空，回调里判断一下就不会踩悬垂指针。
         QPointer<DeviceDriver> driver = task.driver.get();
 
-        // 发起请求后【立即返回】，tick 继续处理下一个指标 —— 这就是异步化的收益：
+        // 发起请求后立即返回，tick 继续处理下一个指标 —— 这就是异步化的收益：
         // 设备慢只会让某个指标的数据晚到，不会拖住整条调度循环。
         m_session->send(req, [this, driver](ModbusResponse rsp) {
-            // 这个回调在【本对象线程】执行（client 用 invokeMethod 回投保证），
+            // 这个回调在本对象线程执行（client 用 invokeMethod 回投保证），
             // 所以可以安全访问 m_tasks，不需要加锁。
             for (PollingTask &t : m_tasks) {
                 if (t.driver.get() == driver.data()) {

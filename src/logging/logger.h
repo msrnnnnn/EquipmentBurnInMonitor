@@ -12,7 +12,7 @@
 
 namespace burninsys {
 
-// [面试重点] 单例 + Sink机制 + 互斥锁线程安全
+// 单例 + Sink机制 + 互斥锁线程安全
 // 单向依赖：所有模块依赖Logger，Logger不依赖其他单例，梅耶斯单例安全
 // Sink = 可插拔的输出目标（控制台、文件、UI状态栏），开闭原则
 class Logger
@@ -28,7 +28,7 @@ public:
         Fatal
     };
 
-    // [面试重点] Sink = 输出回调，用 std::function 实现多态，比接口类更轻量
+    // Sink = 输出回调，用 std::function 实现多态，比接口类更轻量
     using Sink = std::function<void(const QString&)>;
 
     // 梅耶斯单例：局部静态变量，线程安全（C++11保证），只初始化一次

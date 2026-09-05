@@ -193,7 +193,7 @@ void ServiceFacade::stop()
         QMetaObject::invokeMethod(m_modbusSession,&ModbusSession::stop,Qt::BlockingQueuedConnection);
         QMetaObject::invokeMethod(m_pollingScheduler,&PollingScheduler::stop,Qt::BlockingQueuedConnection);
         // S8+Bug8 修复：SqliteRepository 的析构（close + removeDatabase）必须在 db 线程执行，
-        // 且必须【在线程 quit 之前】以 BlockingQueuedConnection 投递 ——
+        // 且必须在线程 quit 之前以 BlockingQueuedConnection 投递 ——
         // quit 之后事件循环已退出，再投 BlockingQueued 会永久阻塞（真死锁，不是理论问题）。
         // 投递顺序保证排在队列末尾的 delete 会先处理完所有排队的 save()。
         QMetaObject::invokeMethod(m_sqliteRepository, [this]() {
@@ -288,7 +288,7 @@ void ServiceFacade::onSampleReady(const TelemetrySample &sample)
 void ServiceFacade::onThresholdUpdated(double motorTemp, double current, double rpm, double vibration, double voltage, double power)
 {
     // P2 遗留 2 号：阈值快照改为"全部写成功才回写"。
-    // 6 个写回调都跑在【工作线程】且串行执行（client 单飞），共享数组统计结果无竞争；
+    // 6 个写回调都跑在工作线程且串行执行（client 单飞），共享数组统计结果无竞争；
     // 全部收齐后 invokeMethod 回主线程更新快照 —— 跨线程改主线程成员必须走 QueuedConnection。
     const auto vals = std::array<double, 6>{motorTemp, current, rpm, vibration, voltage, power};
     auto& regs = m_config.thresholdRegisters;

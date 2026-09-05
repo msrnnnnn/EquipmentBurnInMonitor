@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QVariant>
 
-// [面试重点] 单一职责：只管历史缓存+信号广播，不做异常判断、不做数据库写入
+// 单一职责：只管历史缓存+信号广播，不做异常判断、不做数据库写入
 // 异常判断归RuleEngine，数据库归SqliteWriter，各自独立
 class EquipmentDataProvider : public QObject
 {
