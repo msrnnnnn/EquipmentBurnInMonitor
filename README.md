@@ -2,7 +2,7 @@
 
 面向工业设备老化测试（Burn-In Test）场景的 Qt 上位机监控软件。通过 Modbus TCP 实时采集电机运行遥测（温度 / 电流 / 转速 / 振动 / 电压 / 功率 共 6 路），完成规则判定、SQLite 历史存储、工业大屏展示与设备启停控制，并可自动执行 72 小时老化测试并给出 PASS/FAIL 判定。
 
-> 本项目由作者独立开发，同时作为 Qt 客户端开发方向的求职作品。
+> 本项目由作者独立开发。
 
 ---
 
@@ -218,20 +218,20 @@ cmake --build build
 - [x] 配置加载与热更新（规则 + 采集任务 + 连接 + TestRunner 全量重建）
 - [x] Logger 单例 + Sink、MetricsCollector、DataCache
 
-### 路线图（按演示与面试价值排序）
+### 路线图（按演示价值排序）
 
 **P3 —— 工程化收尾**
 
 1. 自动化测试（未做：纯逻辑与 UI 均无自动化用例，验证靠手动演示与实测实验）
 2. 断线分层验收实验固化（拔网线时间线已实测：响应超时 2s → 断连感知 → 1s 重连，connect 失败才指数退避）
 
-> 施工计划与文档出处见 `DEVELOPMENT_PLAN.md`（S1~S9 已全部完成）；源码级缺陷与面试追问防线见 `INTERVIEW_READINESS_REPORT.md`；本分支的设计决策、取舍与 Bug 排查全记录见 `BRANCH_NOTES.md`。
+> S1~S9 施工进度与各阶段设计取舍见分支提交信息——每条 commit 自解释"改了什么、为什么、如何验证"。
 
 ### 已知限制
 
 - 01/02（线圈/离散输入）功能码链路已通，但驱动解码层只服务寄存器格式（bit 类采集项会标 bad，属诚实失败）
 - `DiagnosticsReporter` 已实现但未实例化；`DataCache` 只写不读（快照 API 供诊断预留，Metrics 摘要已接 60s 日志消费者）
-- 无自动化测试（验证靠手动演示 + 可复现的实测实验，见 `BRANCH_NOTES.md` 实测记录表）
+- 无自动化测试（验证靠手动演示 + 可复现的实测实验）
 - 视频页为占位骨架（视频模块不在路线图内）
 
 ## 第三方依赖
@@ -240,10 +240,3 @@ cmake --build build
 - **QCustomPlot**：`third_party/qcustomplot.{h,cpp}`，实时曲线绘图
 
 > Windows 上需定义 `FD_SETSIZE=8192`：libmodbus 会把 socket 句柄值 ≥ `FD_SETSIZE` 的连接当异常拒绝（errno=EINVAL），Qt 程序启动后句柄基数高，默认 1024 不够。
-
-## 参考文档
-
-- `BRANCH_NOTES.md`：`feat/simulator-async` 分支全记录——每个模块做了什么 / 为什么这么做 / 设计取舍 / 遇到的 Bug 与排查过程 / 实测数据
-- `DEVELOPMENT_PLAN.md`：对照开发文档的差距分析与施工计划（S1~S9，已全部完成）
-- `INTERVIEW_READINESS_REPORT.md`：源码级评审，按"面试官多快能发现"分级
-- 开发基线文档：《设备老化测试监控系统-50次迭代开发文档》（43 节，位于项目外）
