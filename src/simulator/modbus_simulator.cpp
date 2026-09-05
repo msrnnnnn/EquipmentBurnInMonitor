@@ -6,6 +6,13 @@
 
 using burninsys::Logger;
 
+namespace {
+// 模拟从站声明的寄存器映射上界。覆盖 config.json 用到的全部地址
+//（遥测 5~12、阈值下发 100~105、模式 200）；映射之外没有寄存器，
+// 访问即非法地址（0x02 异常）——从站必须拒绝，而不是静默读 0。
+constexpr quint16 kRegisterMaxAddress = 255;
+}
+
 ModbusSimulator::ModbusSimulator(QObject *parent)
     : QTcpServer(parent)
 {
@@ -140,6 +147,17 @@ void ModbusSimulator::onReadyRead()
     while (buf.size() >= 7) {
         // bytes[4..5] 是 length 字段（大端 2 字节），含义 = 从站ID(1) + 功能码(1) + 后面数据的长度
         quint16 length = static_cast<quint8>(buf[4]) << 8 | static_cast<quint8>(buf[5]);
+
+        // length 合法域 = 从站ID(1) + PDU(≤253) → 2~254。越界说明帧界已失步，
+        // 字节流上无法安全重同步，只能断开该连接（主站侧收到断开走重连链路）。
+        if (length < 2 || length > 254) {
+            Logger::instance().warn(QStringLiteral("Malformed frame: MBAP length=%1 out of range [2,254], dropping client")
+                                        .arg(length));
+            buf.clear();
+            socket->disconnectFromHost();
+            return;
+        }
+
         int frameSize = 6 + length; // 6 字节 MBAP 头 + length 指示的载荷长度 = 一整帧的大小
         if (buf.size() < frameSize) return; // 半包，数据还没收齐，等下次 readyRead 再来
 
@@ -182,6 +200,8 @@ QByteArray ModbusSimulator::handleRequest(const QByteArray &adu)
     case ModbusFunction::ReadHoldingRegisters: {
         if (quantity == 0 || quantity > 125)
             return buildException(transaction, unitId, function, 0x03);
+        if (start + quantity - 1 > kRegisterMaxAddress)
+            return buildException(transaction, unitId, function, 0x02);
         QByteArray payload;
         QDataStream out(&payload, QIODevice::WriteOnly);
         out.setByteOrder(QDataStream::BigEndian);
@@ -193,6 +213,8 @@ QByteArray ModbusSimulator::handleRequest(const QByteArray &adu)
     case ModbusFunction::ReadInputRegisters: {
         if (quantity == 0 || quantity > 125)
             return buildException(transaction, unitId, function, 0x03);
+        if (start + quantity - 1 > kRegisterMaxAddress)
+            return buildException(transaction, unitId, function, 0x02);
         QByteArray payload;
         QDataStream out(&payload, QIODevice::WriteOnly);
         out.setByteOrder(QDataStream::BigEndian);
@@ -204,6 +226,8 @@ QByteArray ModbusSimulator::handleRequest(const QByteArray &adu)
     case ModbusFunction::WriteSingleRegister: {
         // B11：变量名语义修正 —— 0x06 请求里这个字段是"要写的寄存器值"，不是数量
         const quint16 value = quantity;
+        if (start > kRegisterMaxAddress)
+            return buildException(transaction, unitId, function, 0x02);
         m_holding[start] = value;
         mirrorStartStop(start, value);
         return buildWriteResponse(transaction, unitId, function, start, value);
@@ -212,6 +236,8 @@ QByteArray ModbusSimulator::handleRequest(const QByteArray &adu)
         // 写单线圈（主站"启停"按钮用 modbus_write_bit → 0x05）
         // 规范值：0xFF00=ON / 0x0000=OFF，统一存成标准值便于读回
         const quint16 coilValue = (quantity != 0) ? 0xFF00 : 0x0000;
+        if (start > kRegisterMaxAddress)   // 线圈与寄存器共用同一映射空间（模拟器简化）
+            return buildException(transaction, unitId, function, 0x02);
         m_holding[start] = coilValue;
         mirrorStartStop(start, coilValue);
         // 0x05 响应 = 回显地址 + 写入值（与 0x06 同构）
@@ -220,6 +246,11 @@ QByteArray ModbusSimulator::handleRequest(const QByteArray &adu)
     case ModbusFunction::WriteMultipleRegisters: {
         quint8 byteCount;
         ds >> byteCount;
+        // 非法数据：数量为 0 或超协议上限（写多寄存器一次最多 123 个），byteCount 必须等于 quantity*2
+        if (quantity == 0 || quantity > 123 || byteCount != quantity * 2)
+            return buildException(transaction, unitId, function, 0x03);
+        if (start + quantity - 1 > kRegisterMaxAddress)
+            return buildException(transaction, unitId, function, 0x02);
         for (int i = 0; i < quantity; ++i) {
             quint16 v;
             ds >> v;
