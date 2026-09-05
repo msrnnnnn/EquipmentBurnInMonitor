@@ -95,6 +95,21 @@ target_link_libraries(EquipmentBurnInMonitor PRIVATE
 target_compile_definitions(EquipmentBurnInMonitor PRIVATE FD_SETSIZE=8192)
 target_link_libraries(EquipmentBurnInMonitor PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 
+# ── AddressSanitizer（可选开关，默认关）──
+# 开启：configure 时加 -DENABLE_ASAN=ON（Qt Creator：Projects → Build → CMake → 初始 CMake 参数）
+# MinGW/GCC：-fsanitize=address 必须同时出现在编译与链接；-g 保留调试信息，报错才有函数名与行号
+# 只用于排查构建：ASan 版本慢约 2 倍、内存约 3 倍，日常与演示构建保持默认关
+option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
+if(ENABLE_ASAN)
+    if(MSVC)
+        target_compile_options(EquipmentBurnInMonitor PRIVATE /fsanitize=address)
+    else()
+        target_compile_options(EquipmentBurnInMonitor PRIVATE
+            -fsanitize=address -fno-omit-frame-pointer -g)
+        target_link_options(EquipmentBurnInMonitor PRIVATE -fsanitize=address)
+    endif()
+endif()
+
 if(Qt6_VERSION VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.EquipmentBurnInMonitor)
 endif()
