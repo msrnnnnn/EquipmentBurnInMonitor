@@ -6,12 +6,16 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <QLabel>
+#include <QScrollArea>
 #include "api/ServiceFacade.h"
 
 SettingsPage::SettingsPage(QWidget *parent)
     : QWidget{parent}
 {
-    auto *mainLayout = new QVBoxLayout(this);
+    // 页面内容（6 个分组、25 行表单）比窗口可视区高，裸布局放不下时 Qt 会把控件
+    // 压到互相重叠；用滚动容器包一层，内容保持自然高度，不足则出滚动条。
+    auto *content = new QWidget;
+    auto *mainLayout = new QVBoxLayout(content);
     mainLayout->setAlignment(Qt::AlignTop);
 
     // ── 连接配置 ──
@@ -119,6 +123,15 @@ SettingsPage::SettingsPage(QWidget *parent)
     modeLayout->addRow("Mode:", m_modeCombo);
 
     mainLayout->addWidget(modeGroup);
+
+    auto *scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);            // 宽度跟随页面，只有纵向滚动
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidget(content);
+
+    auto *outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->addWidget(scroll);
 }
 
 void SettingsPage::bindSensor(EquipmentData *sensor)
