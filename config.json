@@ -3,7 +3,8 @@
     "endpoint": {
         "host": "127.0.0.1",
         "port": 502,
-        "unitId": 1
+        "unitId": 1,
+        "timeoutMs": 2000
     },
     "testProfile": {
         "testDurationHours": 72,

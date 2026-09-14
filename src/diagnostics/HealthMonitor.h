@@ -2,7 +2,7 @@
 #define HEALTHMONITOR_H
 
 #include "device/DeviceDriver.h"
-#include "modbus/modbussession.h"
+#include "modbus/ModbusSession.h"
 #include <QObject>
 #include <QTimer>
 #include <QElapsedTimer>

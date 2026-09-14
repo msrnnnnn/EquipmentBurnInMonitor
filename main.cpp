@@ -1,8 +1,8 @@
-#include "api/servicefacade.h"
-#include "mainwindow.h"
-#include "logging/logger.h"
-#include "config/config.h"
-#include "simulator/modbus_simulator.h"
+#include "api/ServiceFacade.h"
+#include "MainWindow.h"
+#include "logging/Logger.h"
+#include "config/Config.h"
+#include "simulator/ModbusSimulator.h"
 
 #include <QApplication>
 #include <QCommandLineParser>

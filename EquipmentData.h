@@ -2,7 +2,7 @@
 #define EQUIPMENTDATA_H
 
 #include <QObject>
-#include "equipmentdataprovider.h"
+#include "EquipmentDataProvider.h"
 
 class EquipmentData : public QObject
 {

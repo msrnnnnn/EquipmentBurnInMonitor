@@ -3,9 +3,9 @@
 
 #include <QMainWindow>
 
-#include "homepage.h"
-#include "settingspage.h"
-#include "videopage.h"
+#include "HomePage.h"
+#include "SettingsPage.h"
+#include "VideoPage.h"
 
 class QListWidget;
 class QStackedWidget;

@@ -1,8 +1,8 @@
 #ifndef DIAGNOSTICSREPORTER_H
 #define DIAGNOSTICSREPORTER_H
 
-#include "healthmonitor.h"
-#include "data/datacache.h"
+#include "HealthMonitor.h"
+#include "data/DataCache.h"
 #include "metrics/MetricsCollector.h"
 
 #include <QObject>

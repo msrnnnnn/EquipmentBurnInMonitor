@@ -1,6 +1,6 @@
-#include "homepage.h"
-#include "api/servicefacade.h"
-#include "logging/logger.h"
+#include "HomePage.h"
+#include "api/ServiceFacade.h"
+#include "logging/Logger.h"
 #include <QDateTime>
 #include <QFrame>
 #include <QGridLayout>

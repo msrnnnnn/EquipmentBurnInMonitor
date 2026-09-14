@@ -1,9 +1,9 @@
 #include "PollingScheduler.h"
-#include "device/currentdevice.h"
-#include "device/modbusdevicedriver.h"
-#include "device/motortemperaturedevice.h"
-#include "device/simpleregisterdevice.h"
-#include "logging/logger.h"
+#include "device/CurrentDevice.h"
+#include "device/ModbusDeviceDriver.h"
+#include "device/MotorTemperatureDevice.h"
+#include "device/SimpleRegisterDevice.h"
+#include "logging/Logger.h"
 #include <QDateTime>
 
 using burninsys::Logger;

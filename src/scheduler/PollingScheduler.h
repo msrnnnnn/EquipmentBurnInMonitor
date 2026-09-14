@@ -1,9 +1,9 @@
 #ifndef POLLINGSCHEDULER_H
 #define POLLINGSCHEDULER_H
 
-#include "config/config.h"
+#include "config/Config.h"
 #include "device/DeviceDriver.h"
-#include "modbus/modbussession.h"
+#include "modbus/ModbusSession.h"
 #include <QObject>
 #include <QPointer>
 #include <QTimer>

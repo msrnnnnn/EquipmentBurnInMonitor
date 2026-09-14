@@ -1,10 +1,11 @@
-#ifndef SIMPLEREGISTERDEVICE_H
-#define SIMPLEREGISTERDEVICE_H
+#ifndef MOTORTEMPERATUREDEVICE_H
+#define MOTORTEMPERATUREDEVICE_H
 
-#include "modbusdevicedriver.h"
+#include "modbus.h"
+#include "ModbusDeviceDriver.h"
 #include <qdatetime.h>
 
-class SimpleRegisterDevice : public ModbusDeviceDriver
+class MotorTemperatureDevice : public ModbusDeviceDriver
 {
 public:
     using ModbusDeviceDriver::ModbusDeviceDriver;
@@ -18,7 +19,7 @@ public:
     {
         ModbusReadRequest req;
         req.type = getRegisterType();   // B10：不再写死 holding
-        req.quantity = 1;
+        req.quantity = 2;
         req.startAddress = getAddress();
         req.unitId = getUnitId();
         return req;
@@ -29,17 +30,16 @@ public:
         sample.name = name();
         sample.timestampMs = QDateTime::currentMSecsSinceEpoch();
 
-        if(!rsp.success || rsp.payload.size() < 2)
+        if(!rsp.success || rsp.payload.size() < 4)
         {
             sample.quality = "bad";
             return sample;
         }
 
-        quint16 raw;
-        memcpy(&raw, rsp.payload.constData(), sizeof(quint16));
-        sample.value = static_cast<double>(raw) * getScale();
+        float value = modbus_get_float_abcd(reinterpret_cast<const uint16_t*>(rsp.payload.constData()));
+        sample.value = static_cast<double>(value) * getScale();
         return sample;
     }
 };
 
-#endif // SIMPLEREGISTERDEVICE_H
+#endif // MOTORTEMPERATUREDEVICE_H

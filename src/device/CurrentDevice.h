@@ -1,7 +1,7 @@
 #ifndef CURRENTDEVICE_H
 #define CURRENTDEVICE_H
 
-#include "modbusdevicedriver.h"
+#include "ModbusDeviceDriver.h"
 #include <qdatetime.h>
 
 class CurrentDevice : public ModbusDeviceDriver

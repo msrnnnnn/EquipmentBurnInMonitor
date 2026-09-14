@@ -1,4 +1,4 @@
-#include "ratechangerule.h"
+#include "RateChangeRule.h"
 #include <qdatetime.h>
 
 RateChangeRule::RateChangeRule(const QString &name, const QString &metric, double maxRate)

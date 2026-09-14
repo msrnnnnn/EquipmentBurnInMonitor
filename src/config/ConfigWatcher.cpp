@@ -1,5 +1,5 @@
 #include "ConfigWatcher.h"
-#include "logging/logger.h"
+#include "logging/Logger.h"
 
 ConfigWatcher::ConfigWatcher(QObject *parent)
     : QObject{parent}

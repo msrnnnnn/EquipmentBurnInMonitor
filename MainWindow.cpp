@@ -1,14 +1,14 @@
-#include "mainwindow.h"
+#include "MainWindow.h"
 
 #include <QApplication>
 #include <QListWidget>
 #include <QStackedWidget>
 #include <QSplitter>
 
-#include "homepage.h"
-#include "videopage.h"
-#include "settingspage.h"
-#include "equipmentdata.h"
+#include "HomePage.h"
+#include "VideoPage.h"
+#include "SettingsPage.h"
+#include "EquipmentData.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)

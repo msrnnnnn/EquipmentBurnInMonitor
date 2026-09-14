@@ -1,7 +1,7 @@
-#include "servicefacade.h"
-#include "logging/logger.h"
-#include "rules/ratechangerule.h"
-#include "rules/thresholdrule.h"
+#include "ServiceFacade.h"
+#include "logging/Logger.h"
+#include "rules/RateChangeRule.h"
+#include "rules/ThresholdRule.h"
 #include <QApplication>
 #include <QDir>
 #include <QMetaObject>

@@ -1,4 +1,4 @@
-#include "datacache.h"
+#include "DataCache.h"
 #include <QWriteLocker>
 DataCache::DataCache(){}
 

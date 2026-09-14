@@ -1,4 +1,4 @@
-#include "videopage.h"
+#include "VideoPage.h"
 
 #include <QFrame>
 #include <QLabel>

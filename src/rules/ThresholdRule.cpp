@@ -1,4 +1,4 @@
-#include "thresholdrule.h"
+#include "ThresholdRule.h"
 
 ThresholdRule::ThresholdRule(const QString &name, const QString &metric, double threshold, bool isUpper)
     : m_name(name), m_metric(metric), m_threshold(threshold), m_isUpper(isUpper){}

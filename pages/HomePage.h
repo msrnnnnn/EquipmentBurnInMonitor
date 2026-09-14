@@ -4,7 +4,7 @@
 #include <QWidget>
 #include <QPushButton>
 #include <QTableWidget>
-#include "equipmentdata.h"
+#include "EquipmentData.h"
 #include "qcustomplot.h"
 
 class QLabel;

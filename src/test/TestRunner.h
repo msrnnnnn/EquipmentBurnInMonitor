@@ -1,7 +1,7 @@
 #pragma once
 #include <QObject>
 #include <QTimer>
-#include "config/config.h"
+#include "config/Config.h"
 
 class TestRunner : public QObject
 {

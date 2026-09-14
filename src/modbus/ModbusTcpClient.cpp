@@ -1,5 +1,5 @@
-#include "modbustcpclient.h"
-#include "logging/logger.h"
+#include "ModbusTcpClient.h"
+#include "logging/Logger.h"
 #include <QDateTime>
 #include <QVector>
 #include <QMetaObject>
@@ -224,9 +224,6 @@ void ModbusTcpClient::connectAsync(std::function<void(bool ok)> cb)
 {
     const LinkState s = m_state.load();
 
-    // 状态机门禁：连接中 / 已连接 / 已停止 都不再发起新连接。
-    // 没有这道门，HealthMonitor 的重连和用户手动连接会撞在一起，
-    // 连出第二个 modbus_t —— 旧的那个再也没人释放。
     if (s == LinkState::Connecting || s == LinkState::Connected || s == LinkState::Stopped) {
         if (cb)
             cb(s == LinkState::Connected);

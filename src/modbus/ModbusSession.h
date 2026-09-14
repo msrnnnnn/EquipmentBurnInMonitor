@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QTimer>
 #include <functional>
-#include "modbustcpclient.h"
+#include "ModbusTcpClient.h"
 
 // ModbusSession —— 连接生命周期的"对外门面"
 //

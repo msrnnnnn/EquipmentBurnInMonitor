@@ -2,11 +2,11 @@
 #define SERVICEFACADE_H
 
 #include "config/ConfigWatcher.h"
-#include "config/config.h"
+#include "config/Config.h"
 #include "data/SqliteRepository.h"
-#include "data/datacache.h"
-#include "diagnostics/healthmonitor.h"
-#include "equipmentdata.h"
+#include "data/DataCache.h"
+#include "diagnostics/HealthMonitor.h"
+#include "EquipmentData.h"
 #include "metrics/MetricsCollector.h"
 #include "rules/RuleEngine.h"
 #include "scheduler/PollingScheduler.h"

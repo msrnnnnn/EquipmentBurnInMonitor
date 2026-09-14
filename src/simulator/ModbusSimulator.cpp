@@ -1,5 +1,5 @@
-#include "modbus_simulator.h"
-#include "logging/logger.h"
+#include "ModbusSimulator.h"
+#include "logging/Logger.h"
 #include <QDataStream>
 #include <QRandomGenerator>
 #include <QTcpSocket>

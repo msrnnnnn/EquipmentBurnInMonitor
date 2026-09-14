@@ -1,5 +1,5 @@
 #include "SqliteRepository.h"
-#include "logging/logger.h"
+#include "logging/Logger.h"
 #include <QDir>
 #include <QFileInfo>
 #include <QFile>
@@ -78,10 +78,6 @@ bool SqliteRepository::tryInsert(const TelemetrySample &sample)
 
 void SqliteRepository::save(const TelemetrySample &sample)
 {
-    // 工业上位机的底线是"数据不能丢"：磁盘满、数据库被别的进程锁住这类故障
-    // 往往几秒内自愈，所以先重试 3 次，仍失败才落到 .cache 文件里等人工回收。
-    // 注意：重试最多睡 1.5s。S8 之后本对象在独立存储线程，这个停顿不会波及采集；
-    // 在那之前它跑在采集线程，是"宁可慢一下也不能丢数据"的取舍。
     for (int i = 0; i < 3; ++i) {
         if (tryInsert(sample))
             return;

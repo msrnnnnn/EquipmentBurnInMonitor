@@ -4,7 +4,7 @@
 #include <QWidget>
 #include <QPushButton>
 #include <QComboBox>
-#include "equipmentdata.h"
+#include "EquipmentData.h"
 class QLineEdit;
 class QLabel;
 class ServiceFacade;

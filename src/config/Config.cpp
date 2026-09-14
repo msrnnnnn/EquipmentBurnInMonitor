@@ -1,5 +1,5 @@
-#include "config.h"
-#include "logging/logger.h"
+#include "Config.h"
+#include "logging/Logger.h"
 #include <QFile>
 #include <QJsonDocument>
 

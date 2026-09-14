@@ -1,3 +1,0 @@
-#include "currentdevice.h"
-
-

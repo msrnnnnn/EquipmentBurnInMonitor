@@ -1,4 +1,4 @@
-#include "equipmentdataprovider.h"
+#include "EquipmentDataProvider.h"
 
 EquipmentDataProvider::EquipmentDataProvider(QObject *parent)
     : QObject{parent}, m_maxHistory(50)

@@ -1,5 +1,5 @@
-#include "healthmonitor.h"
-#include "logging/logger.h"
+#include "HealthMonitor.h"
+#include "logging/Logger.h"
 HealthMonitor::HealthMonitor(ModbusSession *session, QObject *parent)
     : QObject{parent}, m_session(session)
 {

@@ -1,4 +1,4 @@
-#include "settingspage.h"
+#include "SettingsPage.h"
 
 #include <QVBoxLayout>
 #include <QFormLayout>
@@ -6,7 +6,7 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <QLabel>
-#include "api/servicefacade.h"
+#include "api/ServiceFacade.h"
 
 SettingsPage::SettingsPage(QWidget *parent)
     : QWidget{parent}

@@ -1,4 +1,4 @@
-#include "equipmentdata.h"
+#include "EquipmentData.h"
 
 EquipmentData::EquipmentData(QObject *parent)
     : QObject{parent}

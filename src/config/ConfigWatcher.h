@@ -3,7 +3,7 @@
 
 #include <QObject>
 #include <qfilesystemwatcher.h>
-#include "config/config.h"
+#include "config/Config.h"
 class ConfigWatcher : public QObject
 {
     Q_OBJECT
