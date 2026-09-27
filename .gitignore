@@ -82,11 +82,11 @@ CMakeLists.txt.user*
 /build*/
 .codegraph/
 .mimosa/
+.playwright-mcp/
 AGENTS.md
 CLAUDE.md
 DEVELOPMENT_PLAN.md
 .workbuddy
 面试回答.md
-.codegraph
 .qtcreator
 BRANCH_NOTES.md
